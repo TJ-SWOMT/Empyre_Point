@@ -1,0 +1,65 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Database Environment Configuration Protocol
+
+## Initial Database Context Loading
+As an AI assistant, I MUST:
+1. At the start of each conversation, verify the database configuration:
+   - Check `.env` file for database connection parameters
+   - Ensure AWS test server (DEV) database is being used for all operations
+   - Validate database credentials and endpoint configuration
+
+2. Use the following database URL format for AWS test server:
+   ```
+   DATABASE_URL_TEST=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_ENDPOINT}:${DB_PORT}/${DB_NAME}
+   ```
+
+## Database Connection Rules
+When performing database operations, I MUST:
+1. Connection Verification:
+   - Verify AWS test server credentials are being used
+   - Confirm correct database endpoint is configured
+   - Ensure proper database name is specified
+   - Validate port number matches AWS RDS configuration
+
+2. Environment Variables:
+   - Use `DB_USERNAME=EmpyrePointAdmin`
+   - Use `DB_PASSWORD` from .env
+   - Use `DB_ENDPOINT=empyre-point.ckbeyci4yeyy.us-east-1.rds.amazonaws.com`
+   - Use `DB_PORT=5432`
+   - Use `DB_NAME=Empyre_Point_DB`
+
+## Implementation Requirements
+For each database operation, I MUST:
+1. Connection Validation:
+   - Verify connection string matches AWS test server format
+   - Ensure all required environment variables are present
+   - Confirm database credentials are properly configured
+
+2. Operation Safety:
+   - Use test database for all development operations
+   - Avoid modifying production database configurations
+   - Maintain separate connection strings for test and production
+
+## Error Prevention
+I MUST NOT:
+- Use production database credentials for development
+- Modify production database configurations
+- Skip environment variable validation
+- Use incorrect database endpoints
+- Bypass AWS test server for development operations
+
+## Note
+This rule is critical for maintaining database consistency and security. I will automatically verify the database configuration at the start of each new conversation, before performing any database operations.
+
+
+# Make sure the env files are being used to hit data base
+
+- look at the .env file when looking at the database to run queries and do any database connections.  the password and username and endpoint are in there for the AWS Test database URL.
