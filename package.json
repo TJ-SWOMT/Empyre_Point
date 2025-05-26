@@ -1,0 +1,11 @@
+{
+  "dependencies": {
+    "@tiptap/extension-color": "^2.12.0",
+    "@tiptap/extension-image": "^2.12.0",
+    "@tiptap/extension-link": "^2.12.0",
+    "@tiptap/pm": "^2.12.0",
+    "@tiptap/starter-kit": "^2.12.0",
+    "@tiptap/vue-3": "^2.12.0",
+    "turndown": "^7.2.0"
+  }
+}
