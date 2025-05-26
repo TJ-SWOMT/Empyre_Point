@@ -26,9 +26,9 @@ const routes = [
     component: () => import('./views/UserPresentationsView.vue')
   },
   {
-    path: '/presentations/:id',
-    name: 'Presentation',
-    component: () => import('./views/PresentationView.vue')
+    path: '/presentations/:id/play',
+    name: 'PlayPresentation',
+    component: () => import('./views/PlayPresentationView.vue')
   },
   {
     path: '/presentations/:id/slides/new',
@@ -39,6 +39,11 @@ const routes = [
     path: '/presentations/:id/slides/:slide_id',
     name: 'EditSlide',
     component: () => import('./views/SlideEditorView.vue')
+  },
+  {
+    path: '/presentations/:id',
+    name: 'Presentation',
+    component: () => import('./views/PresentationView.vue')
   }
 ]
 
