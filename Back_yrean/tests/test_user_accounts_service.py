@@ -99,7 +99,7 @@ def test_get_user_by_id(user_service, clean_users_table):
     
     # Act
     created_user = user_service.create_user(username, email, password)
-    retrieved_user = user_service.get_user_by_id(uuid.UUID(created_user['user_id']))
+    retrieved_user = user_service.get_user_by_id(int(created_user['user_id']))
     
     # Assert
     assert retrieved_user is not None
@@ -110,7 +110,7 @@ def test_get_user_by_id(user_service, clean_users_table):
 def test_get_nonexistent_user(user_service, clean_users_table):
     """Test retrieving a user that doesn't exist."""
     # Arrange
-    nonexistent_id = uuid.uuid4()
+    nonexistent_id = 999999
     
     # Act
     user = user_service.get_user_by_id(nonexistent_id)

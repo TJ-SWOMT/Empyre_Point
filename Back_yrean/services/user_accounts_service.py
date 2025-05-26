@@ -1,11 +1,11 @@
 import os
-import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -41,10 +41,14 @@ class UserAccountsService:
             Exception: If user creation fails (e.g., duplicate username/email)
         """
         try:
+            # Validate input
+            if not username or not email or not password:
+                raise Exception("Username, email, and password are required")
+            
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
-                    # Hash the password before storing
-                    password_hash = generate_password_hash(password)
+                    # Hash the password using pbkdf2:sha256 method
+                    password_hash = generate_password_hash(password, method='pbkdf2:sha256')
                     
                     # Insert the new user
                     cur.execute("""
@@ -66,12 +70,12 @@ class UserAccountsService:
         except Exception as e:
             raise Exception(f"Error creating user: {str(e)}")
 
-    def get_user_by_id(self, user_id: uuid.UUID) -> Optional[Dict[str, Any]]:
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
         """
         Retrieve a user by their ID.
         
         Args:
-            user_id: The UUID of the user to retrieve
+            user_id: The ID of the user to retrieve
             
         Returns:
             Dict containing user information or None if not found
@@ -79,13 +83,11 @@ class UserAccountsService:
         try:
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
-                    # Convert UUID to string for database query
-                    user_id_str = str(user_id)
                     cur.execute("""
                         SELECT user_id, username, email, created_at
                         FROM users
-                        WHERE user_id = %s::uuid
-                    """, (user_id_str,))
+                        WHERE user_id = %s
+                    """, (user_id,))
                     
                     user = cur.fetchone()
                     return dict(user) if user else None
@@ -112,14 +114,19 @@ class UserAccountsService:
                         FROM users
                         WHERE username = %s
                     """, (username,))
-                    
                     user = cur.fetchone()
-                    if user and check_password_hash(user['password_hash'], password):
-                        # Remove password hash from returned data
-                        user_dict = dict(user)
-                        del user_dict['password_hash']
-                        return user_dict
+                    if user:
+                        logging.debug(f"Login attempt for username: {username}")
+                        logging.debug(f"Password provided: {password}")
+                        logging.debug(f"Password hash in DB: {user['password_hash']}")
+                        if check_password_hash(user['password_hash'], password):
+                            user_dict = dict(user)
+                            del user_dict['password_hash']
+                            return user_dict
+                        else:
+                            logging.debug("Password hash check failed.")
+                    else:
+                        logging.debug(f"No user found for username: {username}")
                     return None
-                    
         except Exception as e:
             raise Exception(f"Error verifying password: {str(e)}") 
