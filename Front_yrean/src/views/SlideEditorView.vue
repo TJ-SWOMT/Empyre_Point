@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
+import { marked } from 'marked'
 
 const route = useRoute()
 const router = useRouter()
@@ -27,6 +28,14 @@ watch(backgroundColor, (newColor) => {
 
 const texts = ref([])
 
+const elements = ref([])
+const selectedElement = ref(null)
+const isDragging = ref(false)
+const dragStartPos = ref({ x: 0, y: 0 })
+const elementStartPos = ref({ x: 0, y: 0 })
+
+const isAddingText = ref(false)
+
 const loadSlideData = async () => {
     if (!isEditMode.value) return
 
@@ -45,6 +54,18 @@ const loadSlideData = async () => {
         } else {
             throw new Error('Slide not found')
         }
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
+const loadSlideElements = async () => {
+    if (!isEditMode.value) return
+
+    try {
+        const response = await presentationApi.getSlideElements(slideId)
+        if (response.error) throw new Error(response.error)
+        elements.value = response.elements || []
     } catch (err) {
         error.value = handleApiError(err)
     }
@@ -90,10 +111,12 @@ const saveSlide = async () => {
 }
 
 const addText = () => {
-    texts.value.push({
-        id: texts.value.length + 1,
-        text: ''
-    })
+    isAddingText.value = true
+    // Change cursor to indicate we're in text adding mode
+    const slideContainer = document.querySelector('.slide-container')
+    if (slideContainer) {
+        slideContainer.style.cursor = 'text'
+    }
 }
 
 const deleteText = (id) => {
@@ -108,9 +131,171 @@ const box = ref(null)
 const pageX = ref(null) 
 const pageY = ref(null)
 
+// Create a new text element
+const createTextElement = async (x, y) => {
+    try {
+        const response = await presentationApi.createTextElement(slideId, {
+            content: 'New Text',
+            x_position: x,
+            y_position: y,
+            width: 200,
+            height: 100,
+            font_family: 'Arial',
+            font_size: 18,
+            font_color: '#000000',
+            bold: false,
+            italic: false,
+            underline: false,
+            text_align: 'left',
+            z_index: elements.value.length
+        })
+
+        if (response.error) throw new Error(response.error)
+        elements.value.push(response.element)
+        selectedElement.value = response.element
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
+// Update an element
+const updateElement = async (elementId, updates) => {
+    try {
+        const response = await presentationApi.updateElement(elementId, {
+            element_type: 'text',
+            ...updates
+        })
+
+        if (response.error) throw new Error(response.error)
+        
+        // Update the element in our local state
+        const index = elements.value.findIndex(e => e.element_id === elementId)
+        if (index !== -1) {
+            elements.value[index] = { ...elements.value[index], ...response.element }
+        }
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
+// Delete an element
+const deleteElement = async (elementId) => {
+    try {
+        const response = await presentationApi.deleteElement(elementId)
+        if (response.error) throw new Error(response.error)
+        
+        elements.value = elements.value.filter(e => e.element_id !== elementId)
+        if (selectedElement.value?.element_id === elementId) {
+            selectedElement.value = null
+        }
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
+// Handle element selection
+const selectElement = (element) => {
+    selectedElement.value = element
+}
+
+// Handle drag start
+const handleDragStart = (event, element) => {
+    if (event.target.closest('.text-editor')) return // Don't drag if clicking in editor
+    
+    isDragging.value = true
+    selectedElement.value = element
+    dragStartPos.value = {
+        x: event.clientX,
+        y: event.clientY
+    }
+    elementStartPos.value = {
+        x: element.x_position,
+        y: element.y_position
+    }
+    
+    // Add event listeners for drag
+    document.addEventListener('mousemove', handleDrag)
+    document.addEventListener('mouseup', handleDragEnd)
+}
+
+// Handle drag
+const handleDrag = (event) => {
+    if (!isDragging.value || !selectedElement.value) return
+    
+    const dx = event.clientX - dragStartPos.value.x
+    const dy = event.clientY - dragStartPos.value.y
+    
+    const newX = elementStartPos.value.x + dx
+    const newY = elementStartPos.value.y + dy
+    
+    // Update element position
+    updateElement(selectedElement.value.element_id, {
+        x_position: newX,
+        y_position: newY
+    })
+}
+
+// Handle drag end
+const handleDragEnd = () => {
+    isDragging.value = false
+    document.removeEventListener('mousemove', handleDrag)
+    document.removeEventListener('mouseup', handleDragEnd)
+}
+
+// Handle slide click to create new text element
+const handleSlideClick = (event) => {
+    if (!isAddingText.value) return // Only create text if we're in add text mode
+    if (event.target.closest('.element')) return // Don't create if clicking on existing element
+    
+    const rect = event.target.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    createTextElement(x, y)
+    isAddingText.value = false // Reset the mode after creating
+    
+    // Reset cursor
+    const slideContainer = document.querySelector('.slide-container')
+    if (slideContainer) {
+        slideContainer.style.cursor = 'default'
+    }
+}
+
+const isEditing = ref(false)
+const editingContent = ref('')
+const textEditor = ref(null)
+
+// Add these new functions for text editing
+const startEditing = (element) => {
+    selectedElement.value = element
+    isEditing.value = true
+    editingContent.value = element.element_data.content
+    
+    // Focus the textarea after it's rendered
+    nextTick(() => {
+        if (textEditor.value) {
+            textEditor.value.focus()
+        }
+    })
+}
+
+const finishEditing = async () => {
+    if (!selectedElement.value) return
+    
+    try {
+        await updateElement(selectedElement.value.element_id, {
+            content: editingContent.value
+        })
+        isEditing.value = false
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
 onMounted(async () => {
     if (isEditMode.value) {
         await loadSlideData()
+        await loadSlideElements()
     }
 
     box.value = document.querySelector(".slide-container")
@@ -146,20 +331,154 @@ onMounted(async () => {
                         title="Choose slide background color"
                     />
                 </div>
-                <button @click="addText">Add Text</button>
+                <button 
+                    @click="addText" 
+                    :class="{ active: isAddingText }"
+                    title="Click to add text, then click on the slide where you want the text to appear"
+                >
+                    Add Text
+                </button>
                 <button @click="addImage">Add Image</button>
             </div>
         </div>
 
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <div class="slide-container" :style="{ backgroundColor: backgroundColor }">
-            <form v-for="text in texts" :key="text.id">
-                <input type="text" placeholder="Text" />
-                <button @click="deleteText(text.id)">x</button>
-            </form>
-            <p><code>pageX</code>: <span id="x">n/a</span></p>
-            <p><code>pageY</code>: <span id="y">n/a</span></p>
+        <div 
+            class="slide-container" 
+            :style="{ backgroundColor: backgroundColor }"
+            @click="handleSlideClick"
+        >
+            <!-- Text Elements -->
+            <div 
+                v-for="element in elements" 
+                :key="element.element_id"
+                class="element text-element"
+                :class="{ 
+                    'selected': selectedElement?.element_id === element.element_id,
+                    'editing': selectedElement?.element_id === element.element_id && isEditing
+                }"
+                :style="{
+                    position: 'absolute',
+                    left: `${element.x_position}px`,
+                    top: `${element.y_position}px`,
+                    width: element.width ? `${element.width}px` : 'auto',
+                    height: element.height ? `${element.height}px` : 'auto',
+                    zIndex: element.z_index
+                }"
+                @mousedown="(e) => handleDragStart(e, element)"
+                @click.stop="selectElement(element)"
+            >
+                <div 
+                    v-if="selectedElement?.element_id === element.element_id"
+                    class="element-controls"
+                >
+                    <button @click.stop="deleteElement(element.element_id)" class="delete-btn">×</button>
+                </div>
+                
+                <div 
+                    class="text-editor"
+                    :style="{
+                        fontFamily: element.element_data.font_family,
+                        fontSize: `${element.element_data.font_size}px`,
+                        color: element.element_data.font_color,
+                        fontWeight: element.element_data.bold ? 'bold' : 'normal',
+                        fontStyle: element.element_data.italic ? 'italic' : 'normal',
+                        textDecoration: element.element_data.underline ? 'underline' : 'none',
+                        textAlign: element.element_data.text_align
+                    }"
+                    @dblclick.stop="startEditing(element)"
+                >
+                    <textarea
+                        v-if="selectedElement?.element_id === element.element_id && isEditing"
+                        v-model="editingContent"
+                        @blur="finishEditing"
+                        @keydown.enter.prevent="finishEditing"
+                        :style="{
+                            fontFamily: element.element_data.font_family,
+                            fontSize: `${element.element_data.font_size}px`,
+                            color: element.element_data.font_color,
+                            fontWeight: element.element_data.bold ? 'bold' : 'normal',
+                            fontStyle: element.element_data.italic ? 'italic' : 'normal',
+                            textDecoration: element.element_data.underline ? 'underline' : 'none',
+                            textAlign: element.element_data.text_align,
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            background: 'transparent',
+                            resize: 'none',
+                            outline: 'none',
+                            padding: '5px'
+                        }"
+                        ref="textEditor"
+                    ></textarea>
+                    <div v-else v-html="marked(element.element_data.content)"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Element Styling Controls -->
+        <div v-if="selectedElement" class="element-styling">
+            <div class="styling-controls">
+                <select 
+                    v-model="selectedElement.element_data.font_family"
+                    @change="updateElement(selectedElement.element_id, { font_family: selectedElement.element_data.font_family })"
+                >
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                </select>
+                
+                <input 
+                    type="number" 
+                    v-model.number="selectedElement.element_data.font_size"
+                    @change="updateElement(selectedElement.element_id, { font_size: selectedElement.element_data.font_size })"
+                    min="8"
+                    max="72"
+                />
+                
+                <input 
+                    type="color" 
+                    v-model="selectedElement.element_data.font_color"
+                    @change="updateElement(selectedElement.element_id, { font_color: selectedElement.element_data.font_color })"
+                />
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        bold: !selectedElement.element_data.bold 
+                    })"
+                    :class="{ active: selectedElement.element_data.bold }"
+                >
+                    B
+                </button>
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        italic: !selectedElement.element_data.italic 
+                    })"
+                    :class="{ active: selectedElement.element_data.italic }"
+                >
+                    I
+                </button>
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        underline: !selectedElement.element_data.underline 
+                    })"
+                    :class="{ active: selectedElement.element_data.underline }"
+                >
+                    U
+                </button>
+                
+                <select 
+                    v-model="selectedElement.element_data.text_align"
+                    @change="updateElement(selectedElement.element_id, { text_align: selectedElement.element_data.text_align })"
+                >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
         </div>
 
         <div class="action-buttons">
@@ -187,6 +506,7 @@ onMounted(async () => {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
+    cursor: crosshair;
 }
 
 .header-container {
@@ -278,5 +598,114 @@ onMounted(async () => {
     background-color: #ccc;
     border-color: #999;
     cursor: not-allowed;
+}
+
+.slide-container {
+    position: relative;
+    cursor: crosshair;
+}
+
+.element {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+}
+
+.element.selected {
+    outline: 2px solid #007bff;
+}
+
+.element-controls {
+    position: absolute;
+    top: -20px;
+    right: 0;
+    z-index: 1000;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+}
+
+.text-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 30px;
+}
+
+.element-styling {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.styling-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.styling-controls button {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.styling-controls button.active {
+    background-color: #0056b3;
+    color: white;
+}
+
+.styling-controls select,
+.styling-controls input[type="number"] {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.styling-controls input[type="color"] {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.text-element {
+    min-width: 100px;
+    min-height: 30px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    padding: 5px;
+}
+
+.text-element.selected {
+    outline: 2px solid #007bff;
+    background: white;
+}
+
+.text-element.editing {
+    outline: 2px solid #28a745;
 }
 </style> 
