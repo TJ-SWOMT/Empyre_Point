@@ -9,8 +9,6 @@ const presentationId = route.params.id
 const router = useRouter()
 
 const addSlide = () => {
-  console.log('addSlide')
-
   router.push(`/presentations/${presentationId}/slides/new`)
 }
 </script>

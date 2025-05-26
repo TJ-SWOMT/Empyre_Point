@@ -33,7 +33,12 @@ const routes = [
   {
     path: '/presentations/:id/slides/new',
     name: 'CreateSlide',
-    component: () => import('./views/CreateSlideView.vue')
+    component: () => import('./views/SlideEditorView.vue')
+  },
+  {
+    path: '/presentations/:id/slides/:slide_id',
+    name: 'EditSlide',
+    component: () => import('./views/SlideEditorView.vue')
   }
 ]
 

@@ -115,7 +115,7 @@ export const presentationApi = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ slide_number, background_color, background_image_url })
+      body: JSON.stringify({ slide_number, background_color, background_image_url, presentation_id })
     })
     return response.json()
   },
@@ -127,7 +127,11 @@ export const presentationApi = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       },
-      body: JSON.stringify({ slide_number, background_color, background_image_url })
+      body: JSON.stringify({ 
+        slide_number: Number(slide_number), 
+        background_color, 
+        background_image_url 
+      })
     })
     return response.json()
   },
