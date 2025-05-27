@@ -5,45 +5,43 @@ import { presentationApi, handleApiError } from '../services/api'
 
 // Native markdown parser function
 const parseMarkdown = (text) => {
-  if (!text) return ''
-  
-  // Sanitize input to prevent XSS
-  const sanitize = (str) => {
+  if (!text) return '';
+
+  // Escape HTML to prevent XSS
+  const escapeHtml = (str) => {
     return str
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;')
-  }
+      .replace(/'/g, '&#039;');
+  };
 
-  // Process headers
-  text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>')
-  text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>')
-  text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+  // First, escape HTML
+  text = escapeHtml(text);
 
-  // Process bold and italic
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
-  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>')
-  text = text.replace(/_(.*?)_/g, '<em>$1</em>')
+  // Then, process markdown
+  // Headers
+  text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
+  text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
+  text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
+  // Bold and italic
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
+  text = text.replace(/_(.*?)_/g, '<em>$1</em>');
+  // Lists
+  text = text.replace(/^\s*[-*]\s+(.*$)/gm, '<li>$1</li>');
+  text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
+  // Links
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  // Code blocks
+  text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Line breaks
+  text = text.replace(/\n/g, '<br>');
 
-  // Process lists
-  text = text.replace(/^\s*[-*]\s+(.*$)/gm, '<li>$1</li>')
-  text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-
-  // Process links
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-
-  // Process code blocks
-  text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-  text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
-
-  // Process line breaks
-  text = text.replace(/\n/g, '<br>')
-
-  // Sanitize the final output
-  return sanitize(text)
+  return text;
 }
 
 // Function to render element content with markdown
@@ -290,9 +288,8 @@ watch(currentSlide, (newSlide) => {
                    textAlign: element.text_align,
                    zIndex: element.z_index,
                    pointerEvents: 'none',
-                   backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                   border: '2px solid rgba(0, 0, 0, 0.5)',
-                   padding: '6px',
+                   background: 'rgba(0,0,0,0)',
+                   border: 'none',
                    boxSizing: 'border-box',
                    display: 'flex',
                    alignItems: 'center',
@@ -438,7 +435,7 @@ watch(currentSlide, (newSlide) => {
   justify-content: center;
   background: rgba(255, 255, 255, 0.9);
   border: 2px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
   overflow: hidden;
 }
 
