@@ -211,8 +211,144 @@ const deleteText = (id) => {
     texts.value = texts.value.filter(text => text.id !== id)
 }
 
-const addImage = () => {
-    console.log('addImage')
+const addImage = async () => {
+    try {
+        // Create a file input element
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'image/*'
+        
+        // Handle file selection
+        input.onchange = async (event) => {
+            const file = event.target.files[0]
+            if (!file) return
+            
+            // Create a temporary image to get dimensions
+            const img = new Image()
+            const imgUrl = URL.createObjectURL(file)
+            
+            // Wait for image to load to get dimensions
+            await new Promise((resolve, reject) => {
+                img.onload = resolve
+                img.onerror = reject
+                img.src = imgUrl
+            })
+            
+            // Calculate dimensions to fit within slide while maintaining aspect ratio
+            const slideAspectRatio = DESIGN_WIDTH / DESIGN_HEIGHT
+            const imageAspectRatio = img.width / img.height
+            
+            let finalWidth, finalHeight
+            
+            if (imageAspectRatio > slideAspectRatio) {
+                // Image is wider than slide aspect ratio, fit to width
+                finalWidth = DESIGN_WIDTH * 0.9 // 90% of slide width
+                finalHeight = finalWidth / imageAspectRatio
+            } else {
+                // Image is taller than slide aspect ratio, fit to height
+                finalHeight = DESIGN_HEIGHT * 0.9 // 90% of slide height
+                finalWidth = finalHeight * imageAspectRatio
+            }
+            
+            // Round dimensions to integers
+            finalWidth = Math.round(finalWidth)
+            finalHeight = Math.round(finalHeight)
+            
+            // Upload the image
+            const uploadResponse = await presentationApi.uploadImage(file)
+            if (uploadResponse.error) {
+                error.value = uploadResponse.error
+                URL.revokeObjectURL(imgUrl)
+                return
+            }
+            
+            // For new slides, we need to save the slide first
+            if (!isEditMode.value) {
+                const response = await saveSlide()
+                if (!response) {
+                    throw new Error('Failed to create slide')
+                }
+                // Update the slideId from the response
+                slideId.value = response.slide.slide_id
+            }
+            
+            // Calculate position to center the image
+            const xPos = Math.round((DESIGN_WIDTH - finalWidth) / 2)
+            const yPos = Math.round((DESIGN_HEIGHT - finalHeight) / 2)
+            
+            const elementData = {
+                image_url: uploadResponse.image_url,
+                x_position: xPos,
+                y_position: yPos,
+                width: finalWidth,
+                height: finalHeight,
+                z_index: elements.value.length || 0
+            }
+            
+            const response = await presentationApi.createImageElement(slideId.value, elementData)
+            if (response.error) {
+                error.value = response.error
+                URL.revokeObjectURL(imgUrl)
+                return
+            }
+            
+            // Add the new element to the elements array
+            elements.value.push({
+                element_id: response.element.element_id,
+                element_type: 'image',
+                x_position: xPos,
+                y_position: yPos,
+                width: finalWidth,
+                height: finalHeight,
+                z_index: elements.value.length || 0,
+                element_data: {
+                    image_url: uploadResponse.image_url,
+                    alt_text: '',
+                    natural_width: img.width,
+                    natural_height: img.height
+                }
+            })
+            
+            // Clean up
+            URL.revokeObjectURL(imgUrl)
+            
+            // Select the new element
+            selectedElement.value = elements.value[elements.value.length - 1]
+        }
+        
+        // Trigger file selection
+        input.click()
+    } catch (err) {
+        error.value = handleApiError(err)
+        console.error('Error adding image:', err)
+    }
+}
+
+// Add a computed property for maintaining aspect ratio
+const aspectRatio = computed(() => {
+    if (!selectedElement.value || selectedElement.value.element_type !== 'image') return null
+    const { natural_width, natural_height } = selectedElement.value.element_data
+    return natural_width / natural_height
+})
+
+// Modify the width/height update handlers to maintain aspect ratio
+const updateElementDimensions = async (width, height) => {
+    if (!selectedElement.value || selectedElement.value.element_type !== 'image') return
+    
+    const updates = {}
+    if (width !== undefined) {
+        updates.width = width
+        if (aspectRatio.value) {
+            updates.height = Math.round(width / aspectRatio.value)
+        }
+    } else if (height !== undefined) {
+        updates.height = height
+        if (aspectRatio.value) {
+            updates.width = Math.round(height * aspectRatio.value)
+        }
+    }
+    
+    await updateElement(selectedElement.value.element_id, updates)
 }
 
 const box = ref(null)
@@ -739,11 +875,13 @@ watch(scale, (newScale) => {
                     <!-- Text Elements -->
                     <div 
                         v-for="element in elements" 
-                        :key="`element-${element.element_id}-${element.element_data?.content}`"
-                        class="element text-element"
+                        :key="`element-${element.element_id}-${element.element_data?.image_url || element.element_data?.content}`"
+                        class="element"
                         :class="{ 
                             'selected': selectedElement?.element_id === element.element_id,
-                            'editing': selectedElement?.element_id === element.element_id && isEditing
+                            'text-element': element.element_type === 'text',
+                            'image-element': element.element_type === 'image',
+                            'editing': selectedElement?.element_id === element.element_id && isEditing && element.element_type === 'text'
                         }"
                         :style="{
                             position: 'absolute',
@@ -752,20 +890,27 @@ watch(scale, (newScale) => {
                             width: `${element.width}px`,
                             height: `${element.height}px`,
                             zIndex: element.z_index,
-                            fontFamily: element.element_data?.font_family || 'Arial',
-                            fontSize: `${element.element_data?.font_size || 18}px`,
-                            color: element.element_data?.font_color || '#000000',
-                            fontWeight: element.element_data?.bold ? 'bold' : 'normal',
-                            fontStyle: element.element_data?.italic ? 'italic' : 'normal',
-                            textDecoration: element.element_data?.underline ? 'underline' : 'none',
-                            textAlign: element.element_data?.text_align || 'left',
-                            background: 'rgba(255,255,255,0.9)',
-                            border: '2px solid rgba(0,0,0,0.5)',
-                            boxSizing: 'border-box',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: 0
+                            ...(element.element_type === 'text' ? {
+                                fontFamily: element.element_data?.font_family || 'Arial',
+                                fontSize: `${element.element_data?.font_size || 18}px`,
+                                color: element.element_data?.font_color || '#000000',
+                                fontWeight: element.element_data?.bold ? 'bold' : 'normal',
+                                fontStyle: element.element_data?.italic ? 'italic' : 'normal',
+                                textDecoration: element.element_data?.underline ? 'underline' : 'none',
+                                textAlign: element.element_data?.text_align || 'left',
+                                background: 'rgba(255,255,255,0.1)',
+                                border: '2px solid rgba(0,0,0,0.5)',
+                                boxSizing: 'border-box',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: 0
+                            } : {
+                                background: 'transparent',
+                                border: '2px solid rgba(0,0,0,0.5)',
+                                boxSizing: 'border-box',
+                                overflow: 'hidden'
+                            })
                         }"
                         @click.stop="selectElement(element)"
                     >
@@ -775,7 +920,9 @@ watch(scale, (newScale) => {
                         >
                             <button @click.stop="deleteElement(element.element_id)" class="delete-btn">×</button>
                         </div>
-                        <div class="text-editor" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;word-break:break-word;line-height:1.2;padding:2px;">
+                        
+                        <!-- Text element content -->
+                        <div v-if="element.element_type === 'text'" class="text-editor" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;word-break:break-word;line-height:1.2;padding:2px;">
                             <textarea
                                 v-if="selectedElement?.element_id === element.element_id && isEditing"
                                 v-model="editingContent"
@@ -802,6 +949,15 @@ watch(scale, (newScale) => {
                                 }"
                             ></textarea>
                             <div v-else v-html="marked(element.element_data?.content || '')" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+                        </div>
+                        
+                        <!-- Image element content -->
+                        <div v-else-if="element.element_type === 'image'" class="image-container" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                            <img 
+                                :src="element.element_data?.image_url" 
+                                :alt="element.element_data?.alt_text || ''"
+                                style="max-width:100%;max-height:100%;object-fit:contain;"
+                            />
                         </div>
                     </div>
                 </div>
@@ -898,9 +1054,7 @@ watch(scale, (newScale) => {
                         id="width"
                         type="number" 
                         v-model.number="integerWidth"
-                        @change="updateElement(selectedElement.element_id, { 
-                            width: integerWidth
-                        })" 
+                        @change="updateElementDimensions(integerWidth, undefined)"
                         min="10" 
                         step="1"
                         placeholder="Width" 
@@ -912,9 +1066,7 @@ watch(scale, (newScale) => {
                         id="height"
                         type="number" 
                         v-model.number="integerHeight"
-                        @change="updateElement(selectedElement.element_id, { 
-                            height: integerHeight
-                        })" 
+                        @change="updateElementDimensions(undefined, integerHeight)"
                         min="10" 
                         step="1"
                         placeholder="Height" 
@@ -1094,6 +1246,7 @@ watch(scale, (newScale) => {
     position: absolute;
     cursor: move;
     user-select: none;
+    overflow: visible !important;
 }
 
 .element.selected {
@@ -1102,9 +1255,10 @@ watch(scale, (newScale) => {
 
 .element-controls {
     position: absolute;
-    top: -20px;
-    right: 0;
-    z-index: 1000;
+    top: -30px;
+    right: -10px;
+    z-index: 9999;
+    pointer-events: auto;
 }
 
 .delete-btn {
@@ -1112,17 +1266,26 @@ watch(scale, (newScale) => {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
     text-align: center;
     cursor: pointer;
     padding: 0;
-    font-size: 14px;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    position: relative;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 .delete-btn:hover {
     background: #c82333;
+    transform: scale(1.1);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
 }
 
 .text-editor {
@@ -1222,6 +1385,36 @@ watch(scale, (newScale) => {
     background: transparent;
     border: none;
     box-shadow: none;
+}
+
+.image-element {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 2px solid rgba(0,0,0,0.5);
+    overflow: hidden;
+}
+
+.image-element.selected {
+    outline: 2px solid #007bff;
+}
+
+.image-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 }
 
 @media (max-width: 900px) {
