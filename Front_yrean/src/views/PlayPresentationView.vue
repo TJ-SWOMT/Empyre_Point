@@ -43,25 +43,39 @@ const fetchSlideElements = async (slideId) => {
       const processedElements = response.elements.map(element => {
         // Log the raw element for debugging
         console.log('Processing element:', element)
-        const processed = {
-          element_id: element.element_id,
-          element_type: element.element_type,
-          x_position: parseFloat(element.x_position),
-          y_position: parseFloat(element.y_position),
-          width: parseFloat(element.width),
-          height: parseFloat(element.height),
-          z_index: element.z_index || 0,
-          content: element.element_data?.content || 'Empty Text',
-          font_family: element.element_data?.font_family || 'Arial',
-          font_size: element.element_data?.font_size || 24,
-          font_color: element.element_data?.font_color || '#000000',
-          bold: element.element_data?.bold || false,
-          italic: element.element_data?.italic || false,
-          underline: element.element_data?.underline || false,
-          text_align: element.element_data?.text_align || 'left'
+        if (element.element_type === 'image') {
+          // Handle image element
+          return {
+            element_id: element.element_id,
+            element_type: 'image',
+            x_position: parseFloat(element.x_position),
+            y_position: parseFloat(element.y_position),
+            width: parseFloat(element.width),
+            height: parseFloat(element.height),
+            z_index: element.z_index || 0,
+            image_url: element.element_data?.image_url || '',
+            alt_text: element.element_data?.alt_text || '',
+          }
+        } else {
+          // Default: treat as text
+          return {
+            element_id: element.element_id,
+            element_type: element.element_type,
+            x_position: parseFloat(element.x_position),
+            y_position: parseFloat(element.y_position),
+            width: parseFloat(element.width),
+            height: parseFloat(element.height),
+            z_index: element.z_index || 0,
+            content: element.element_data?.content || 'Empty Text',
+            font_family: element.element_data?.font_family || 'Arial',
+            font_size: element.element_data?.font_size || 24,
+            font_color: element.element_data?.font_color || '#000000',
+            bold: element.element_data?.bold || false,
+            italic: element.element_data?.italic || false,
+            underline: element.element_data?.underline || false,
+            text_align: element.element_data?.text_align || 'left'
+          }
         }
-        console.log('Processed element:', processed)
-        return processed
       })
       slideElements.value[slideId] = processedElements
       console.log('Final processed elements for slide', slideId, ':', processedElements)
@@ -226,7 +240,7 @@ watch(currentSlide, (newSlide) => {
           <template v-if="slideElements[currentSlide.slide_id]?.length > 0">
             <div v-for="element in slideElements[currentSlide.slide_id]" 
                  :key="element.element_id"
-                 class="text-element"
+                 :class="element.element_type === 'image' ? 'image-element' : 'text-element'"
                  :style="{
                    position: 'absolute',
                    left: `${element.x_position}px`,
@@ -234,40 +248,60 @@ watch(currentSlide, (newSlide) => {
                    width: `${element.width}px`,
                    height: `${element.height}px`,
                    zIndex: element.z_index,
-                   fontFamily: element.font_family,
-                   fontSize: `${element.font_size}px`,
-                   color: element.font_color,
-                   fontWeight: element.bold ? 'bold' : 'normal',
-                   fontStyle: element.italic ? 'italic' : 'normal',
-                   textDecoration: element.underline ? 'underline' : 'none',
-                   textAlign: element.text_align,
-                   background: 'rgba(0,0,0,0)',
-                   border: 'none',
-                   boxSizing: 'border-box',
-                   display: 'flex',
-                   alignItems: 'center',
-                   justifyContent: 'center',
-                   padding: 0
+                   ...(element.element_type === 'text' ? {
+                     fontFamily: element.font_family,
+                     fontSize: `${element.font_size}px`,
+                     color: element.font_color,
+                     fontWeight: element.bold ? 'bold' : 'normal',
+                     fontStyle: element.italic ? 'italic' : 'normal',
+                     textDecoration: element.underline ? 'underline' : 'none',
+                     textAlign: element.text_align,
+                     background: 'rgba(0,0,0,0)',
+                     border: 'none',
+                     boxSizing: 'border-box',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     padding: 0
+                   } : {
+                     background: 'transparent',
+                     border: 'none',
+                     boxSizing: 'border-box',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     overflow: 'hidden',
+                     padding: 0
+                   })
                  }">
-              <div class="element-content" :style="{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: element.text_align,
-                overflow: 'hidden',
-                wordBreak: 'break-word',
-                color: element.font_color,
-                fontSize: `${element.font_size}px`,
-                fontWeight: element.bold ? 'bold' : 'normal',
-                fontStyle: element.italic ? 'italic' : 'normal',
-                textDecoration: element.underline ? 'underline' : 'none',
-                padding: '2px',
-                lineHeight: '1.2'
-              }">
-                <div v-html="renderElementContent(element)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
-              </div>
+              <!-- Render text element -->
+              <template v-if="element.element_type === 'text'">
+                <div class="element-content" :style="{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: element.text_align,
+                  overflow: 'hidden',
+                  wordBreak: 'break-word',
+                  color: element.font_color,
+                  fontSize: `${element.font_size}px`,
+                  fontWeight: element.bold ? 'bold' : 'normal',
+                  fontStyle: element.italic ? 'italic' : 'normal',
+                  textDecoration: element.underline ? 'underline' : 'none',
+                  padding: '2px',
+                  lineHeight: '1.2'
+                }">
+                  <div v-html="renderElementContent(element)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+                </div>
+              </template>
+              <!-- Render image element -->
+              <template v-else-if="element.element_type === 'image'">
+                <div class="image-container" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                  <img :src="element.image_url" :alt="element.alt_text" style="max-width:100%;max-height:100%;object-fit:contain;" />
+                </div>
+              </template>
             </div>
           </template>
         </div>

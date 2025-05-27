@@ -5,6 +5,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 import logging
+from services.s3_service import S3Service
 
 # Load environment variables
 load_dotenv()
@@ -19,6 +20,7 @@ class PresentationsService:
             'host': os.getenv('DB_ENDPOINT'),
             'port': os.getenv('DB_PORT')
         }
+        self.s3_service = S3Service()
 
     def _get_connection(self):
         """Create and return a database connection."""
@@ -695,4 +697,192 @@ class PresentationsService:
                     } for element in elements]
                     
         except Exception as e:
-            raise Exception(f"Error retrieving slide elements: {str(e)}") 
+            raise Exception(f"Error retrieving slide elements: {str(e)}")
+
+    def create_image_element(self, slide_id: int, image_url: str, x_position: float, y_position: float,
+                           width: Optional[float] = None, height: Optional[float] = None,
+                           alt_text: Optional[str] = None, z_index: int = 0) -> Dict[str, Any]:
+        """
+        Create a new image element on a slide.
+        
+        Args:
+            slide_id: The ID of the slide to add the image element to
+            image_url: The URL of the image
+            x_position: X coordinate position on the slide
+            y_position: Y coordinate position on the slide
+            width: Optional width of the image element
+            height: Optional height of the image element
+            alt_text: Optional alt text for the image
+            z_index: Layer order of the element
+            
+        Returns:
+            Dict containing the created image element's information
+        """
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    # First create the slide element
+                    cur.execute("""
+                        INSERT INTO slide_elements 
+                        (slide_id, element_type, x_position, y_position, width, height, z_index)
+                        VALUES (%s, 'image', %s, %s, %s, %s, %s)
+                        RETURNING element_id
+                    """, (slide_id, x_position, y_position, width, height, z_index))
+                    
+                    element = cur.fetchone()
+                    if not element:
+                        raise Exception("Failed to create slide element")
+                    
+                    # Then create the image element
+                    cur.execute("""
+                        INSERT INTO image_elements 
+                        (element_id, image_url, alt_text)
+                        VALUES (%s, %s, %s)
+                        RETURNING element_id, image_url, alt_text
+                    """, (element['element_id'], image_url, alt_text))
+                    
+                    image_element = cur.fetchone()
+                    conn.commit()
+                    
+                    # Combine the information
+                    return {
+                        **dict(image_element),
+                        'x_position': x_position,
+                        'y_position': y_position,
+                        'width': width,
+                        'height': height,
+                        'z_index': z_index,
+                        'element_type': 'image'
+                    }
+                    
+        except Exception as e:
+            raise Exception(f"Error creating image element: {str(e)}")
+
+    def update_image_element(self, element_id: int, image_url: Optional[str] = None,
+                           x_position: Optional[float] = None, y_position: Optional[float] = None,
+                           width: Optional[float] = None, height: Optional[float] = None,
+                           alt_text: Optional[str] = None, z_index: Optional[int] = None) -> Optional[Dict[str, Any]]:
+        """
+        Update an image element's properties.
+        
+        Args:
+            element_id: The ID of the image element to update
+            image_url: New image URL (optional)
+            x_position: New X coordinate (optional)
+            y_position: New Y coordinate (optional)
+            width: New width (optional)
+            height: New height (optional)
+            alt_text: New alt text (optional)
+            z_index: New z-index (optional)
+            
+        Returns:
+            Dict containing updated image element information or None if not found
+        """
+        try:
+            if not any([image_url, x_position is not None, y_position is not None,
+                       width is not None, height is not None, alt_text, z_index is not None]):
+                raise Exception("At least one field must be provided for update")
+            
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    # Get current element data first
+                    cur.execute("""
+                        SELECT se.x_position, se.y_position, se.width, se.height, se.z_index,
+                               ie.image_url, ie.alt_text
+                        FROM slide_elements se
+                        LEFT JOIN image_elements ie ON se.element_id = ie.element_id
+                        WHERE se.element_id = %s
+                    """, (element_id,))
+                    
+                    current_data = cur.fetchone()
+                    if not current_data:
+                        return None
+                    
+                    # Update slide_elements table
+                    slide_update_fields = []
+                    slide_params = []
+                    
+                    if x_position is not None:
+                        slide_update_fields.append("x_position = %s")
+                        slide_params.append(x_position)
+                    if y_position is not None:
+                        slide_update_fields.append("y_position = %s")
+                        slide_params.append(y_position)
+                    if width is not None:
+                        slide_update_fields.append("width = %s")
+                        slide_params.append(width)
+                    if height is not None:
+                        slide_update_fields.append("height = %s")
+                        slide_params.append(height)
+                    if z_index is not None:
+                        slide_update_fields.append("z_index = %s")
+                        slide_params.append(z_index)
+                    
+                    if slide_update_fields:
+                        slide_update_fields.append("updated_at = NOW()")
+                        slide_params.append(element_id)
+                        
+                        cur.execute(f"""
+                            UPDATE slide_elements 
+                            SET {', '.join(slide_update_fields)}
+                            WHERE element_id = %s
+                            RETURNING x_position, y_position, width, height, z_index
+                        """, slide_params)
+                        
+                        updated_slide = cur.fetchone()
+                        if not updated_slide:
+                            return None
+                    else:
+                        updated_slide = {
+                            'x_position': current_data['x_position'],
+                            'y_position': current_data['y_position'],
+                            'width': current_data['width'],
+                            'height': current_data['height'],
+                            'z_index': current_data['z_index']
+                        }
+                    
+                    # Update image_elements table
+                    image_update_fields = []
+                    image_params = []
+                    
+                    if image_url is not None:
+                        # Delete old image from S3 if URL is changing
+                        if current_data['image_url'] != image_url:
+                            self.s3_service.delete_image(current_data['image_url'])
+                        image_update_fields.append("image_url = %s")
+                        image_params.append(image_url)
+                    if alt_text is not None:
+                        image_update_fields.append("alt_text = %s")
+                        image_params.append(alt_text)
+                    
+                    if image_update_fields:
+                        image_params.append(element_id)
+                        
+                        cur.execute(f"""
+                            UPDATE image_elements 
+                            SET {', '.join(image_update_fields)}
+                            WHERE element_id = %s
+                            RETURNING image_url, alt_text
+                        """, image_params)
+                        
+                        updated_image = cur.fetchone()
+                        if not updated_image:
+                            return None
+                    else:
+                        updated_image = {
+                            'image_url': current_data['image_url'],
+                            'alt_text': current_data['alt_text']
+                        }
+                    
+                    conn.commit()
+                    
+                    # Combine the information
+                    return {
+                        'element_id': element_id,
+                        'element_type': 'image',
+                        **dict(updated_slide),
+                        **dict(updated_image)
+                    }
+                    
+        except Exception as e:
+            raise Exception(f"Error updating image element: {str(e)}") 

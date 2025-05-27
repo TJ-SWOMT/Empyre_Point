@@ -195,6 +195,34 @@ export const presentationApi = {
       }
     })
     return response.json()
+  },
+
+  // Image upload endpoint
+  async uploadImage(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(`${API_BASE_URL}/upload/image`, {
+      method: 'POST',
+      body: formData
+    })
+    return response.json()
+  },
+
+  // Image element endpoints
+  async createImageElement(slide_id, elementData) {
+    const response = await fetch(`${API_BASE_URL}/slides/${slide_id}/elements/image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        ...elementData,
+        element_type: 'image'
+      })
+    })
+    return response.json()
   }
 }
 

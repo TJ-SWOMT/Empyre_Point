@@ -5,6 +5,8 @@ from services.presentations_service import PresentationsService
 from dotenv import load_dotenv
 import os
 import logging
+import uuid
+from werkzeug.utils import secure_filename
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -314,6 +316,77 @@ def create_text_element(slide_id):
         logger.error(f"Text element creation error: {str(e)}")
         return jsonify({'error': str(e)}), 400
 
+@app.route('/api/upload/image', methods=['POST'])
+def upload_image():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+            
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+            
+        if not file.content_type.startswith('image/'):
+            return jsonify({'error': 'File must be an image'}), 400
+            
+        # Generate a unique filename
+        file_ext = os.path.splitext(secure_filename(file.filename))[1]
+        unique_filename = f"{uuid.uuid4()}{file_ext}"
+        
+        # Upload to S3
+        success, image_url = presentations_service.s3_service.upload_image(
+            file_data=file.read(),
+            file_name=unique_filename,
+            content_type=file.content_type
+        )
+        
+        if not success:
+            return jsonify({'error': 'Failed to upload image'}), 500
+            
+        return jsonify({
+            'success': True,
+            'image_url': image_url
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Image upload error: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/slides/<int:slide_id>/elements/image', methods=['POST'])
+def create_image_element(slide_id):
+    try:
+        data = request.get_json()
+        logger.debug(f"Received image element creation data: {data}")
+        
+        # Validate required fields
+        required_fields = ['image_url', 'x_position', 'y_position']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            error_msg = f'Missing required fields: {", ".join(missing_fields)}'
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
+        
+        # Create image element
+        element = presentations_service.create_image_element(
+            slide_id=slide_id,
+            image_url=data['image_url'],
+            x_position=float(data['x_position']),
+            y_position=float(data['y_position']),
+            width=data.get('width'),
+            height=data.get('height'),
+            alt_text=data.get('alt_text'),
+            z_index=data.get('z_index', 0)
+        )
+        
+        return jsonify({
+            'success': True,
+            'element': element
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Image element creation error: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
 @app.route('/api/elements/<int:element_id>', methods=['PUT'])
 def update_element(element_id):
     try:
@@ -337,6 +410,17 @@ def update_element(element_id):
                 italic=data.get('italic'),
                 underline=data.get('underline'),
                 text_align=data.get('text_align'),
+                z_index=data.get('z_index')
+            )
+        elif data.get('element_type') == 'image':
+            element = presentations_service.update_image_element(
+                element_id=element_id,
+                image_url=data.get('image_url'),
+                x_position=data.get('x_position'),
+                y_position=data.get('y_position'),
+                width=data.get('width'),
+                height=data.get('height'),
+                alt_text=data.get('alt_text'),
                 z_index=data.get('z_index')
             )
         else:
