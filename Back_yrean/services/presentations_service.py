@@ -488,6 +488,20 @@ class PresentationsService:
             
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Get current element data first
+                    cur.execute("""
+                        SELECT se.x_position, se.y_position, se.width, se.height, se.z_index,
+                               te.content, te.font_family, te.font_size, te.font_color,
+                               te.bold, te.italic, te.underline, te.text_align
+                        FROM slide_elements se
+                        LEFT JOIN text_elements te ON se.element_id = te.element_id
+                        WHERE se.element_id = %s
+                    """, (element_id,))
+                    
+                    current_data = cur.fetchone()
+                    if not current_data:
+                        return None
+                    
                     # Update slide_elements table
                     slide_update_fields = []
                     slide_params = []
@@ -519,9 +533,17 @@ class PresentationsService:
                             RETURNING x_position, y_position, width, height, z_index
                         """, slide_params)
                         
-                        slide_element = cur.fetchone()
-                        if not slide_element:
+                        updated_slide = cur.fetchone()
+                        if not updated_slide:
                             return None
+                    else:
+                        updated_slide = {
+                            'x_position': current_data['x_position'],
+                            'y_position': current_data['y_position'],
+                            'width': current_data['width'],
+                            'height': current_data['height'],
+                            'z_index': current_data['z_index']
+                        }
                     
                     # Update text_elements table
                     text_update_fields = []
@@ -563,9 +585,20 @@ class PresentationsService:
                                     bold, italic, underline, text_align
                         """, text_params)
                         
-                        text_element = cur.fetchone()
-                        if not text_element:
+                        updated_text = cur.fetchone()
+                        if not updated_text:
                             return None
+                    else:
+                        updated_text = {
+                            'content': current_data['content'],
+                            'font_family': current_data['font_family'],
+                            'font_size': current_data['font_size'],
+                            'font_color': current_data['font_color'],
+                            'bold': current_data['bold'],
+                            'italic': current_data['italic'],
+                            'underline': current_data['underline'],
+                            'text_align': current_data['text_align']
+                        }
                     
                     conn.commit()
                     
@@ -573,8 +606,8 @@ class PresentationsService:
                     return {
                         'element_id': element_id,
                         'element_type': 'text',
-                        **(dict(slide_element) if slide_element else {}),
-                        **(dict(text_element) if text_element else {})
+                        **dict(updated_slide),
+                        **dict(updated_text)
                     }
                     
         except Exception as e:
