@@ -3,6 +3,7 @@ import { ref, onMounted, computed, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
+import { useSlideScale } from '../composables/useSlideScale'
 
 // Function to render element content with markdown
 const renderElementContent = (element) => {
@@ -19,7 +20,8 @@ const isLoading = ref(true)
 const slideElements = ref({})
 const elementsLoaded = ref({}) // Track which slides have their elements loaded
 const slideWrapperRef = ref(null)
-const scale = ref(1)
+
+const { scale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
 
 const currentSlide = computed(() => slides.value[currentSlideIndex.value] || null)
 const isFirstSlide = computed(() => currentSlideIndex.value === 0)
@@ -167,29 +169,16 @@ const handleKeyPress = (event) => {
   }
 }
 
-function calculateScale() {
-  // Get available viewport size (subtract some margin)
-  const margin = 40
-  const maxW = window.innerWidth - margin * 2
-  const maxH = window.innerHeight - 120 // leave space for nav controls
-  const scaleW = maxW / 1000
-  const scaleH = maxH / 600
-  scale.value = Math.min(scaleW, scaleH, 1) // never upscale above 1
-}
-
 onMounted(() => {
   fetchSlides()
   window.addEventListener('keydown', handleKeyPress)
-  window.addEventListener('resize', calculateScale)
-  nextTick(() => calculateScale())
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
-  window.removeEventListener('resize', calculateScale)
 })
 
-watch(currentSlide, () => nextTick(() => calculateScale()))
+watch(currentSlide, () => nextTick(() => {}))
 
 // Add a watch to log when current slide changes
 watch(currentSlide, (newSlide) => {
@@ -214,8 +203,13 @@ watch(currentSlide, (newSlide) => {
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          transform: `scale(${scale})`,
-          margin: '0 auto',
+          width: DESIGN_WIDTH + 'px',
+          height: DESIGN_HEIGHT + 'px',
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: `translate(-50%, -50%) scale(${scale})`,
+          transformOrigin: 'top left'
         }"
       >
         <!-- Background image -->
@@ -239,6 +233,7 @@ watch(currentSlide, (newSlide) => {
                    top: `${element.y_position}px`,
                    width: `${element.width}px`,
                    height: `${element.height}px`,
+                   zIndex: element.z_index,
                    fontFamily: element.font_family,
                    fontSize: `${element.font_size}px`,
                    color: element.font_color,
@@ -246,15 +241,13 @@ watch(currentSlide, (newSlide) => {
                    fontStyle: element.italic ? 'italic' : 'normal',
                    textDecoration: element.underline ? 'underline' : 'none',
                    textAlign: element.text_align,
-                   zIndex: element.z_index,
-                   pointerEvents: 'none',
                    background: 'rgba(0,0,0,0)',
                    border: 'none',
                    boxSizing: 'border-box',
                    display: 'flex',
                    alignItems: 'center',
                    justifyContent: 'center',
-                  //  overflow: 'hidden',
+                   padding: 0
                  }">
               <div class="element-content" :style="{
                 width: '100%',
@@ -273,23 +266,11 @@ watch(currentSlide, (newSlide) => {
                 padding: '2px',
                 lineHeight: '1.2'
               }">
-                <div v-html="renderElementContent(element)" class="markdown-content"></div>
+                <div v-html="renderElementContent(element)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
               </div>
             </div>
           </template>
         </div>
-        <!-- Debug overlay -->
-        <!-- <div class="debug-overlay" v-if="currentSlide">
-          <div>Presentation ID: {{ presentationId }}</div>
-          <div>Slide ID: {{ currentSlide.slide_id }}</div>
-          <div>Slide Number: {{ currentSlide.slide_number }}</div>
-          <div>Elements: {{ slideElements[currentSlide.slide_id]?.length || 0 }}</div>
-          <div>Total Slides: {{ slides.length }}</div>
-          <div>Elements Loaded: {{ isCurrentSlideReady ? 'Yes' : 'No' }}</div>
-          <div v-if="slideElements[currentSlide.slide_id]?.length > 0">
-            First Element: {{ JSON.stringify(slideElements[currentSlide.slide_id][0]) }}
-          </div>
-        </div> -->
       </div>
     </div>
     <!-- Navigation controls -->
@@ -339,64 +320,53 @@ watch(currentSlide, (newSlide) => {
 }
 
 .slide-scale-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  position: relative;
   width: 100vw;
   height: 80vh;
-  /* Center the slide */
   overflow: hidden;
-}
-
-.slide-display {
-  width: 1000px;
-  height: 600px;
-  background-color: white;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-  /* Responsive scaling */
-  transform-origin: top left;
   margin: 0 auto;
 }
 
-/* Responsive scaling for .slide-display */
-@media (max-width: 1200px), (max-height: 800px) {
-  .slide-scale-wrapper {
-    width: 100vw;
-    height: 80vh;
-  }
-  .slide-display {
-    /* Scale to fit viewport, maintaining 16:9 */
-    /* Calculate scale factor in JS if needed for perfect fit */
-    max-width: 100vw;
-    max-height: 80vh;
-  }
+.slide-display {
+  width: 960px;
+  height: 540px;
+  background-color: white;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  position: absolute;
+  overflow: hidden;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  transform-origin: top left;
+  box-sizing: border-box;
+  /* left/top/translate handled inline */
 }
 
 .slide-elements {
   position: absolute;
   top: 0;
   left: 0;
-  width: 1000px;
-  height: 600px;
+  width: 960px;  /* Match edit view dimensions */
+  height: 540px; /* Match edit view dimensions */
   pointer-events: none;
   overflow: visible;
 }
 
 .text-element {
   position: absolute;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.9);
-  border: 2px solid rgba(0, 0, 0, 0.5);
-  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
-  /* overflow: hidden; */
+  background: rgba(255,255,255,0.9);
+  border: 2px solid rgba(0,0,0,0.5);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
 }
 
 .element-content {
@@ -518,7 +488,7 @@ watch(currentSlide, (newSlide) => {
 .markdown-content {
   width: 100%;
   height: 100%;
-  overflow: auto;
+  /* overflow: auto; */
 }
 
 .markdown-content :deep(h1) {

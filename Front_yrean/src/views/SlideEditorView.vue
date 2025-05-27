@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed, nextTick, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
+import { useSlideScale } from '../composables/useSlideScale'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +12,13 @@ const slideId = ref(route.params.slide_id)
 const error = ref('')
 const isSubmitting = ref(false)
 const isEditMode = computed(() => !!slideId.value)
+
+const headerRef = ref(null)
+const controlsRef = ref(null)
+const actionButtonsRef = ref(null)
+const availableHeight = ref(600) // fallback default
+
+const { scale, DESIGN_WIDTH, DESIGN_HEIGHT, calculateScale } = useSlideScale(availableHeight)
 
 // Initialize background color from session storage, but use presentation-specific key
 const getStoredBackgroundColor = () => {
@@ -32,6 +40,61 @@ const elements = ref([])
 const selectedElement = ref(null)
 
 const isAddingText = ref(false)
+
+// Add computed properties for integer display
+const integerFontSize = computed({
+    get: () => Math.round(selectedElement.value?.element_data?.font_size || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.element_data.font_size = Math.round(value)
+        }
+    }
+})
+
+const integerX = computed({
+    get: () => Math.round(selectedElement.value?.x_position || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.x_position = Math.round(value)
+        }
+    }
+})
+
+const integerY = computed({
+    get: () => Math.round(selectedElement.value?.y_position || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.y_position = Math.round(value)
+        }
+    }
+})
+
+const integerWidth = computed({
+    get: () => Math.round(selectedElement.value?.width || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.width = Math.round(value)
+        }
+    }
+})
+
+const integerHeight = computed({
+    get: () => Math.round(selectedElement.value?.height || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.height = Math.round(value)
+        }
+    }
+})
+
+const integerZIndex = computed({
+    get: () => Math.round(selectedElement.value?.z_index || 0),
+    set: (value) => {
+        if (selectedElement.value) {
+            selectedElement.value.z_index = Math.round(value)
+        }
+    }
+})
 
 const loadSlideData = async () => {
     if (!isEditMode.value) return
@@ -97,6 +160,26 @@ const saveSlide = async () => {
         if (response.error) {
             throw new Error(response.error)
         }
+
+        // Save all element positions, sizes, and styles
+        const updatePromises = elements.value.map(element => {
+            return updateElement(element.element_id, {
+                x_position: element.x_position,
+                y_position: element.y_position,
+                width: element.width,
+                height: element.height,
+                z_index: element.z_index,
+                font_family: element.element_data?.font_family,
+                font_size: element.element_data?.font_size,
+                font_color: element.element_data?.font_color,
+                bold: element.element_data?.bold,
+                italic: element.element_data?.italic,
+                underline: element.element_data?.underline,
+                text_align: element.element_data?.text_align,
+                content: element.element_data?.content
+            })
+        })
+        await Promise.all(updatePromises)
         
         // For new slides, update the URL with the new slide ID
         if (!isEditMode.value && response.slide) {
@@ -158,9 +241,20 @@ const updateElement = async (elementId, updates) => {
         const numericId = validateElementId(elementId)
         console.log('Updating element with ID:', numericId, 'Updates:', updates)
         
+        // Ensure numeric values are integers
+        const integerUpdates = Object.entries(updates).reduce((acc, [key, value]) => {
+            // Convert numeric values to integers
+            if (typeof value === 'number') {
+                acc[key] = Math.round(value)
+            } else {
+                acc[key] = value
+            }
+            return acc
+        }, {})
+        
         const response = await presentationApi.updateElement(numericId, {
             element_type: 'text',
-            ...updates
+            ...integerUpdates
         })
         
         console.log('Server response:', JSON.stringify(response, null, 2))
@@ -241,6 +335,13 @@ const createTextElement = async (x, y) => {
             slideId.value = response.slide.slide_id
         }
 
+        // Ensure x and y are integers and not null
+        const xPos = Math.round(Number(x) || 0)
+        const yPos = Math.round(Number(y) || 0)
+
+        // Log the initial values
+        console.log('Creating text element with position:', { x: xPos, y: yPos })
+
         const defaultElementData = {
             content: 'New Text',
             font_family: 'Arial',
@@ -252,10 +353,11 @@ const createTextElement = async (x, y) => {
             text_align: 'left'
         }
 
-        const response = await presentationApi.createTextElement(slideId.value, {
+        // Prepare the element data with explicit numeric values
+        const elementData = {
             content: defaultElementData.content,
-            x_position: x,
-            y_position: y,
+            x_position: xPos,
+            y_position: yPos,
             width: 200,
             height: 100,
             font_family: defaultElementData.font_family,
@@ -265,20 +367,66 @@ const createTextElement = async (x, y) => {
             italic: defaultElementData.italic,
             underline: defaultElementData.underline,
             text_align: defaultElementData.text_align,
-            z_index: elements.value.length
-        })
+            z_index: elements.value.length || 0
+        }
 
-        if (response.error) throw new Error(response.error)
-        
-        // Ensure the element has a numeric ID
-        const elementId = validateElementId(response.element.element_id)
-        const newElement = {
-            ...response.element,
-            element_id: elementId,
-            element_data: response.element.element_data || defaultElementData
+        // Log the data being sent to the API
+        console.log('Sending element data to API:', elementData)
+
+        const response = await presentationApi.createTextElement(slideId.value, elementData)
+
+        if (response.error) {
+            console.error('API returned error:', response.error)
+            throw new Error(response.error)
+        }
+
+        if (!response.element) {
+            console.error('API response missing element data:', response)
+            throw new Error('Invalid API response: missing element data')
         }
         
+        // Log the API response
+        console.log('API response:', response)
+
+        // Ensure the element has a numeric ID and all numeric values are integers
+        const elementId = validateElementId(response.element.element_id)
+        
+        // Create a new element with explicit numeric values and null checks
+        const newElement = {
+            element_id: elementId,
+            element_type: 'text',
+            x_position: Math.round(Number(response.element.x_position ?? xPos)),
+            y_position: Math.round(Number(response.element.y_position ?? yPos)),
+            width: Math.round(Number(response.element.width ?? 200)),
+            height: Math.round(Number(response.element.height ?? 100)),
+            z_index: Math.round(Number(response.element.z_index ?? elements.value.length)),
+            element_data: {
+                content: response.element.element_data?.content ?? defaultElementData.content,
+                font_family: response.element.element_data?.font_family ?? defaultElementData.font_family,
+                font_size: Math.round(Number(response.element.element_data?.font_size ?? defaultElementData.font_size)),
+                font_color: response.element.element_data?.font_color ?? defaultElementData.font_color,
+                bold: response.element.element_data?.bold ?? defaultElementData.bold,
+                italic: response.element.element_data?.italic ?? defaultElementData.italic,
+                underline: response.element.element_data?.underline ?? defaultElementData.underline,
+                text_align: response.element.element_data?.text_align ?? defaultElementData.text_align
+            }
+        }
+        
+        // Log the final element object
         console.log('Created new element:', newElement)
+
+        // Validate all numeric fields before adding to elements array
+        const requiredNumericFields = ['x_position', 'y_position', 'width', 'height', 'z_index', 'element_data.font_size']
+        for (const field of requiredNumericFields) {
+            const value = field.includes('.') 
+                ? newElement.element_data[field.split('.')[1]]
+                : newElement[field]
+            if (typeof value !== 'number' || isNaN(value)) {
+                console.error(`Invalid numeric value for ${field}:`, value)
+                throw new Error(`Invalid numeric value for ${field}`)
+            }
+        }
+
         elements.value.push(newElement)
         selectedElement.value = newElement
         
@@ -289,6 +437,8 @@ const createTextElement = async (x, y) => {
     } catch (err) {
         error.value = handleApiError(err)
         console.error('Error creating text element:', err)
+        // Log the full error stack for debugging
+        console.error('Error stack:', err.stack)
     }
 }
 
@@ -409,19 +559,97 @@ const handleSlideClick = (event) => {
     if (!isAddingText.value) return; // Only create text if we're in add text mode
     if (event.target.closest('.element')) return; // Don't create if clicking on existing element
 
-    const rect = event.target.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+    // Get the slide container element
+    const slideContainer = event.currentTarget;
+    if (!slideContainer) {
+        console.error('Slide container not found')
+        return;
+    }
 
-    createTextElement(x, y);
+    // Validate scale value
+    if (!scale.value || isNaN(scale.value) || scale.value <= 0) {
+        console.error('Invalid scale value:', scale.value)
+        // Force a scale recalculation
+        calculateScale()
+        // If still invalid, use a fallback scale
+        if (!scale.value || isNaN(scale.value) || scale.value <= 0) {
+            scale.value = 1
+        }
+    }
+
+    // Get the container's position relative to the viewport
+    const rect = slideContainer.getBoundingClientRect();
+    
+    // Calculate the click position relative to the container
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+
+    // Calculate the scaled position
+    // The container is centered, so we need to account for the transform
+    const containerCenterX = rect.width / 2;
+    const containerCenterY = rect.height / 2;
+    
+    // Calculate the position relative to the center
+    const relativeX = clickX - containerCenterX;
+    const relativeY = clickY - containerCenterY;
+    
+    // Apply the inverse of the scale to get the actual position
+    const currentScale = scale.value || 1; // Fallback to 1 if scale is invalid
+    const scaledX = relativeX / currentScale;
+    const scaledY = relativeY / currentScale;
+    
+    // Add the center offset back to get the final position
+    const finalX = scaledX + (DESIGN_WIDTH / 2);
+    const finalY = scaledY + (DESIGN_HEIGHT / 2);
+
+    // Validate the final coordinates
+    if (isNaN(finalX) || isNaN(finalY)) {
+        console.error('Invalid coordinates after calculation:', { 
+            clickX, clickY, 
+            relativeX, relativeY, 
+            scaledX, scaledY, 
+            finalX, finalY,
+            scale: currentScale,
+            rect,
+            DESIGN_WIDTH,
+            DESIGN_HEIGHT
+        });
+        return;
+    }
+
+    // Ensure coordinates are within bounds
+    const boundedX = Math.max(0, Math.min(finalX, DESIGN_WIDTH));
+    const boundedY = Math.max(0, Math.min(finalY, DESIGN_HEIGHT));
+
+    console.log('Creating text element at position:', {
+        click: { x: clickX, y: clickY },
+        relative: { x: relativeX, y: relativeY },
+        scaled: { x: scaledX, y: scaledY },
+        final: { x: finalX, y: finalY },
+        bounded: { x: boundedX, y: boundedY },
+        scale: currentScale,
+        design: { width: DESIGN_WIDTH, height: DESIGN_HEIGHT }
+    });
+
+    createTextElement(boundedX, boundedY);
     isAddingText.value = false; // Reset the mode after creating
 
     // Reset cursor
-    const slideContainer = document.querySelector('.slide-container');
     if (slideContainer) {
         slideContainer.style.cursor = 'default';
     }
 };
+
+function updateAvailableHeight() {
+    nextTick(() => {
+        const headerH = headerRef.value?.getBoundingClientRect().height || 0
+        const controlsH = controlsRef.value?.getBoundingClientRect().height || 0
+        const actionsH = actionButtonsRef.value?.getBoundingClientRect().height || 0
+        const margin = 40
+        availableHeight.value = window.innerHeight - (headerH + controlsH + actionsH + margin)
+        calculateScale()
+    })
+}
 
 onMounted(async () => {
     if (isEditMode.value) {
@@ -447,18 +675,29 @@ onMounted(async () => {
     }
 
     document.addEventListener('mousedown', handleClickAway);
+    updateAvailableHeight()
+    window.addEventListener('resize', updateAvailableHeight)
 })
 
 onUnmounted(() => {
     document.removeEventListener('mousedown', handleClickAway);
+    window.removeEventListener('resize', updateAvailableHeight)
 })
+
+// Add a watch to ensure scale is always valid
+watch(scale, (newScale) => {
+    if (!newScale || isNaN(newScale) || newScale <= 0) {
+        console.warn('Invalid scale detected, recalculating...')
+        calculateScale()
+    }
+}, { immediate: true })
 </script>
 
 <template>
-    <div>
-        <div class="header-container">
+    <div class="editor-root">
+        <div class="header-container" ref="headerRef">
             <h1>{{ isEditMode ? 'Edit Slide' : 'Create Slide' }}</h1>
-            <div class="controls">
+            <div class="controls" ref="controlsRef">
                 <div class="color-picker">
                     <label for="backgroundColor">Background Color:</label>
                     <input 
@@ -481,56 +720,38 @@ onUnmounted(() => {
 
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <div 
-            class="slide-container" 
-            :style="{ backgroundColor: backgroundColor }"
-            @click="handleSlideClick"
-        >
-            <!-- Text Elements -->
-            <div 
-                v-for="element in elements" 
-                :key="`element-${element.element_id}-${element.element_data?.content}`"
-                class="element text-element"
-                :class="{ 
-                    'selected': selectedElement?.element_id === element.element_id,
-                    'editing': selectedElement?.element_id === element.element_id && isEditing
-                }"
-                :style="{
-                    position: 'absolute',
-                    left: `${element.x_position}px`,
-                    top: `${element.y_position}px`,
-                    width: element.width ? `${element.width}px` : 'auto',
-                    height: element.height ? `${element.height}px` : 'auto',
-                    zIndex: element.z_index
-                }"
-                @click.stop="selectElement(element)"
-            >
+        <div class="center-flex">
+            <div class="slide-scale-wrapper" :style="{ height: availableHeight + 'px' }">
                 <div 
-                    v-if="selectedElement?.element_id === element.element_id"
-                    class="element-controls"
-                >
-                    <button @click.stop="deleteElement(element.element_id)" class="delete-btn">×</button>
-                </div>
-                
-                <div 
-                    class="text-editor"
-                    :style="{
-                        fontFamily: element.element_data?.font_family || 'Arial',
-                        fontSize: `${element.element_data?.font_size || 18}px`,
-                        color: element.element_data?.font_color || '#000000',
-                        fontWeight: element.element_data?.bold ? 'bold' : 'normal',
-                        fontStyle: element.element_data?.italic ? 'italic' : 'normal',
-                        textDecoration: element.element_data?.underline ? 'underline' : 'none',
-                        textAlign: element.element_data?.text_align || 'left'
+                    class="slide-container" 
+                    :style="{ 
+                        backgroundColor: backgroundColor, 
+                        width: DESIGN_WIDTH + 'px', 
+                        height: DESIGN_HEIGHT + 'px', 
+                        position: 'absolute',
+                        left: '50%',
+                        top: '50%',
+                        transform: `translate(-50%, -50%) scale(${scale})`,
+                        transformOrigin: 'top left'
                     }"
-                    @dblclick.stop="startEditing(element)"
+                    @click="handleSlideClick"
                 >
-                    <textarea
-                        v-if="selectedElement?.element_id === element.element_id && isEditing"
-                        v-model="editingContent"
-                        @blur="finishEditing"
-                        @keydown="handleKeyDown"
+                    <!-- Text Elements -->
+                    <div 
+                        v-for="element in elements" 
+                        :key="`element-${element.element_id}-${element.element_data?.content}`"
+                        class="element text-element"
+                        :class="{ 
+                            'selected': selectedElement?.element_id === element.element_id,
+                            'editing': selectedElement?.element_id === element.element_id && isEditing
+                        }"
                         :style="{
+                            position: 'absolute',
+                            left: `${element.x_position}px`,
+                            top: `${element.y_position}px`,
+                            width: `${element.width}px`,
+                            height: `${element.height}px`,
+                            zIndex: element.z_index,
                             fontFamily: element.element_data?.font_family || 'Arial',
                             fontSize: `${element.element_data?.font_size || 18}px`,
                             color: element.element_data?.font_color || '#000000',
@@ -538,18 +759,51 @@ onUnmounted(() => {
                             fontStyle: element.element_data?.italic ? 'italic' : 'normal',
                             textDecoration: element.element_data?.underline ? 'underline' : 'none',
                             textAlign: element.element_data?.text_align || 'left',
-                            width: '100%',
-                            height: '100%',
-                            border: 'none',
-                            background: 'transparent',
-                            resize: 'none',
-                            outline: 'none',
-                            padding: '5px',
-                            backgroundColor: 'transparent',
-                            boxShadow: 'none'
+                            background: 'rgba(255,255,255,0.9)',
+                            border: '2px solid rgba(0,0,0,0.5)',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: 0
                         }"
-                    ></textarea>
-                    <div v-else v-html="marked(element.element_data?.content || '')"></div>
+                        @click.stop="selectElement(element)"
+                    >
+                        <div 
+                            v-if="selectedElement?.element_id === element.element_id"
+                            class="element-controls"
+                        >
+                            <button @click.stop="deleteElement(element.element_id)" class="delete-btn">×</button>
+                        </div>
+                        <div class="text-editor" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;word-break:break-word;line-height:1.2;padding:2px;">
+                            <textarea
+                                v-if="selectedElement?.element_id === element.element_id && isEditing"
+                                v-model="editingContent"
+                                @blur="finishEditing"
+                                @keydown="handleKeyDown"
+                                :style="{
+                                    fontFamily: element.element_data?.font_family || 'Arial',
+                                    fontSize: `${element.element_data?.font_size || 18}px`,
+                                    color: element.element_data?.font_color || '#000000',
+                                    fontWeight: element.element_data?.bold ? 'bold' : 'normal',
+                                    fontStyle: element.element_data?.italic ? 'italic' : 'normal',
+                                    textDecoration: element.element_data?.underline ? 'underline' : 'none',
+                                    textAlign: element.element_data?.text_align || 'left',
+                                    width: '100%',
+                                    height: '100%',
+                                    border: '2px solid #28a745',
+                                    background: 'rgba(255,255,255,0.7)',
+                                    resize: 'none',
+                                    outline: 'none',
+                                    padding: '5px',
+                                    boxShadow: 'none',
+                                    boxSizing: 'border-box',
+                                    overflow: 'hidden'
+                                }"
+                            ></textarea>
+                            <div v-else v-html="marked(element.element_data?.content || '')" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -557,52 +811,133 @@ onUnmounted(() => {
         <!-- Element Styling Controls -->
         <div v-if="selectedElement" class="element-styling">
             <div class="styling-controls">
-                <select 
-                    v-model="selectedElement.element_data.font_family"
-                    @change="updateElement(selectedElement.element_id, { 
-                        font_family: selectedElement.element_data.font_family 
-                    })"
-                >
-                    <option value="Arial">Arial</option>
-                    <option value="Times New Roman">Times New Roman</option>
-                    <option value="Courier New">Courier New</option>
-                </select>
-                <input 
-                    type="number" 
-                    v-model.number="selectedElement.element_data.font_size"
-                    @change="updateElement(selectedElement.element_id, { 
-                        font_size: selectedElement.element_data.font_size 
-                    })"
-                    min="8"
-                    max="72"
-                />
-                <input 
-                    type="color" 
-                    v-model="selectedElement.element_data.font_color"
-                    @change="updateElement(selectedElement.element_id, { 
-                        font_color: selectedElement.element_data.font_color 
-                    })"
-                />
-                <select 
-                    v-model="selectedElement.element_data.text_align"
-                    @change="updateElement(selectedElement.element_id, { 
-                        text_align: selectedElement.element_data.text_align 
-                    })"
-                >
-                    <option value="left">Left</option>
-                    <option value="center">Center</option>
-                    <option value="right">Right</option>
-                </select>
-                <!-- New manual controls for position and size -->
-                <input type="number" v-model.number="selectedElement.x_position" @change="updateElement(selectedElement.element_id, { x_position: selectedElement.x_position })" min="0" placeholder="X" style="width:60px" />
-                <input type="number" v-model.number="selectedElement.y_position" @change="updateElement(selectedElement.element_id, { y_position: selectedElement.y_position })" min="0" placeholder="Y" style="width:60px" />
-                <input type="number" v-model.number="selectedElement.width" @change="updateElement(selectedElement.element_id, { width: selectedElement.width })" min="10" placeholder="Width" style="width:70px" />
-                <input type="number" v-model.number="selectedElement.height" @change="updateElement(selectedElement.element_id, { height: selectedElement.height })" min="10" placeholder="Height" style="width:70px" />
-                <input type="number" v-model.number="selectedElement.z_index" @change="updateElement(selectedElement.element_id, { z_index: selectedElement.z_index })" min="0" placeholder="Z" style="width:50px" />
+                <div class="control-group">
+                    <label for="font-family">Font:</label>
+                    <select 
+                        id="font-family"
+                        v-model="selectedElement.element_data.font_family"
+                        @change="updateElement(selectedElement.element_id, { 
+                            font_family: selectedElement.element_data.font_family 
+                        })"
+                    >
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="font-size">Size:</label>
+                    <input 
+                        id="font-size"
+                        type="number" 
+                        v-model.number="integerFontSize"
+                        @change="updateElement(selectedElement.element_id, { 
+                            font_size: integerFontSize
+                        })"
+                        min="8"
+                        max="72"
+                        step="1"
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="font-color">Color:</label>
+                    <input 
+                        id="font-color"
+                        type="color" 
+                        v-model="selectedElement.element_data.font_color"
+                        @change="updateElement(selectedElement.element_id, { 
+                            font_color: selectedElement.element_data.font_color 
+                        })"
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="text-align">Align:</label>
+                    <select 
+                        id="text-align"
+                        v-model="selectedElement.element_data.text_align"
+                        @change="updateElement(selectedElement.element_id, { 
+                            text_align: selectedElement.element_data.text_align 
+                        })"
+                    >
+                        <option value="left">Left</option>
+                        <option value="center">Center</option>
+                        <option value="right">Right</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="x-position">X:</label>
+                    <input 
+                        id="x-position"
+                        type="number" 
+                        v-model.number="integerX"
+                        @change="updateElement(selectedElement.element_id, { 
+                            x_position: integerX
+                        })" 
+                        min="0" 
+                        step="1"
+                        placeholder="X" 
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="y-position">Y:</label>
+                    <input 
+                        id="y-position"
+                        type="number" 
+                        v-model.number="integerY"
+                        @change="updateElement(selectedElement.element_id, { 
+                            y_position: integerY
+                        })" 
+                        min="0" 
+                        step="1"
+                        placeholder="Y" 
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="width">Width:</label>
+                    <input 
+                        id="width"
+                        type="number" 
+                        v-model.number="integerWidth"
+                        @change="updateElement(selectedElement.element_id, { 
+                            width: integerWidth
+                        })" 
+                        min="10" 
+                        step="1"
+                        placeholder="Width" 
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="height">Height:</label>
+                    <input 
+                        id="height"
+                        type="number" 
+                        v-model.number="integerHeight"
+                        @change="updateElement(selectedElement.element_id, { 
+                            height: integerHeight
+                        })" 
+                        min="10" 
+                        step="1"
+                        placeholder="Height" 
+                    />
+                </div>
+                <div class="control-group">
+                    <label for="z-index">Z:</label>
+                    <input 
+                        id="z-index"
+                        type="number" 
+                        v-model.number="integerZIndex"
+                        @change="updateElement(selectedElement.element_id, { 
+                            z_index: integerZIndex
+                        })" 
+                        min="0" 
+                        step="1"
+                        placeholder="Z" 
+                    />
+                </div>
             </div>
         </div>
 
-        <div class="action-buttons">
+        <div class="action-buttons" ref="actionButtonsRef">
             <button @click="router.push(`/presentations/${presentationId}`)" class="cancel-button">
                 Cancel
             </button>
@@ -614,29 +949,55 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.slide-container {
+.editor-root {
+    /* min-height: 100vh; */
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
+    background: #222;
+}
+
+.center-flex {
+    flex: 1;
+    width: 100vw;
+    display: flex;
+    align-items: center;
     justify-content: center;
-    border: 1px solid #ccc;
-    background-color: white;
-    width: 960px;  /* Half of 1920px for better visibility */
-    height: 540px; /* Half of 1080px to maintain 16:9 ratio */
-    margin: 20px auto;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    min-height: 0;
+    min-width: 0;
+}
+
+.slide-scale-wrapper {
+    display: block;
     position: relative;
-    overflow: hidden;
+    width: 100vw;
+    /* height is set dynamically via style binding */
+    /* overflow: hidden; */
+    margin: 0 auto;
+    min-height: 0;
+    min-width: 0;
+}
+
+.slide-container {
+    background-color: white;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    position: absolute;
+    /* overflow: hidden; */
+    border: 1px solid #ccc;
     cursor: crosshair;
+    transform-origin: top left;
+    box-sizing: border-box;
+    /* left/top/translate handled inline */
 }
 
 .header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
+    padding: 10px;
     max-width: 960px;
-    margin: 0 auto;
+    margin: 0;
 }
 
 .controls {
@@ -684,7 +1045,10 @@ onUnmounted(() => {
     display: flex;
     justify-content: center;
     gap: 20px;
-    margin-top: 20px;
+    margin: 24px 0 32px 0;
+    width: 100vw;
+    position: relative;
+    z-index: 10;
 }
 
 .cancel-button, .save-button {
@@ -765,6 +1129,14 @@ onUnmounted(() => {
     width: 100%;
     height: 100%;
     min-height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.2;
+    padding: 2px;
 }
 
 .element-styling {
@@ -773,52 +1145,65 @@ onUnmounted(() => {
     left: 50%;
     transform: translateX(-50%);
     background: white;
-    padding: 10px;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 1000;
 }
 
 .styling-controls {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: center;
+    flex-wrap: wrap;
 }
 
-.styling-controls button {
-    padding: 5px 10px;
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-start;
+}
+
+.control-group label {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+.control-group select,
+.control-group input[type="number"] {
+    padding: 4px 8px;
     border: 1px solid #ddd;
-    background: white;
     border-radius: 4px;
-    cursor: pointer;
+    font-size: 13px;
+    min-width: 60px;
 }
 
-.styling-controls button.active {
-    background-color: #0056b3;
-    color: white;
-}
-
-.styling-controls select,
-.styling-controls input[type="number"] {
-    padding: 5px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.styling-controls input[type="color"] {
+.control-group input[type="color"] {
     width: 30px;
     height: 30px;
     padding: 0;
     border: 1px solid #ddd;
     border-radius: 4px;
+    cursor: pointer;
 }
 
 .text-element {
-    min-width: 100px;
-    min-height: 30px;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 4px;
-    padding: 5px;
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255,255,255,0.9);
+    border: 2px solid rgba(0,0,0,0.5);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
 }
 
 .text-element.selected {
@@ -837,5 +1222,99 @@ onUnmounted(() => {
     background: transparent;
     border: none;
     box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 4vw;
+    max-width: 100vw;
+    gap: 8px;
+  }
+  .controls {
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .color-picker label {
+    font-size: 13px;
+  }
+  .slide-scale-wrapper {
+    width: 100vw;
+    min-width: 0;
+    margin: 0;
+  }
+  .action-buttons {
+    flex-direction: column;
+    gap: 12px;
+    width: 100vw;
+    margin: 16px 0 20px 0;
+  }
+  .cancel-button, .save-button {
+    width: 90vw;
+    max-width: 320px;
+    font-size: 15px;
+    padding: 10px 0;
+  }
+  .element-styling {
+    width: 95vw;
+    padding: 12px;
+  }
+  .styling-controls {
+    gap: 8px;
+  }
+  .control-group {
+    min-width: 80px;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-container {
+    padding: 4px 2vw;
+    font-size: 18px;
+    gap: 4px;
+  }
+  .controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .slide-scale-wrapper {
+    width: 100vw;
+    min-width: 0;
+    margin: 0;
+  }
+  .action-buttons {
+    flex-direction: column;
+    gap: 8px;
+    width: 100vw;
+    margin: 10px 0 14px 0;
+  }
+  .cancel-button, .save-button {
+    width: 96vw;
+    max-width: 240px;
+    font-size: 14px;
+    padding: 9px 0;
+  }
+  .element-styling {
+    width: 98vw;
+    padding: 8px;
+  }
+  .styling-controls {
+    gap: 6px;
+  }
+  .control-group {
+    min-width: 70px;
+  }
+  .control-group label {
+    font-size: 11px;
+  }
+  .control-group select,
+  .control-group input[type="number"] {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
 }
 </style> 
