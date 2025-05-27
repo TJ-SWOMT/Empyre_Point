@@ -2,6 +2,12 @@
 import { ref, onMounted, computed, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
+import { marked } from 'marked'
+
+// Function to render element content with markdown
+const renderElementContent = (element) => {
+  return marked(element.content || '')
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -242,14 +248,13 @@ watch(currentSlide, (newSlide) => {
                    textAlign: element.text_align,
                    zIndex: element.z_index,
                    pointerEvents: 'none',
-                   backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                   border: '2px solid rgba(0, 0, 0, 0.5)',
-                   padding: '6px',
+                   background: 'rgba(0,0,0,0)',
+                   border: 'none',
                    boxSizing: 'border-box',
                    display: 'flex',
                    alignItems: 'center',
                    justifyContent: 'center',
-                   overflow: 'hidden',
+                  //  overflow: 'hidden',
                  }">
               <div class="element-content" :style="{
                 width: '100%',
@@ -268,7 +273,7 @@ watch(currentSlide, (newSlide) => {
                 padding: '2px',
                 lineHeight: '1.2'
               }">
-                {{ element.content }}
+                <div v-html="renderElementContent(element)" class="markdown-content"></div>
               </div>
             </div>
           </template>
@@ -390,8 +395,8 @@ watch(currentSlide, (newSlide) => {
   justify-content: center;
   background: rgba(255, 255, 255, 0.9);
   border: 2px solid rgba(0, 0, 0, 0.5);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
+  /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
+  /* overflow: hidden; */
 }
 
 .element-content {
@@ -507,5 +512,84 @@ watch(currentSlide, (newSlide) => {
   border-radius: 4px;
   font-size: 12px;
   z-index: 1000;
+}
+
+/* Markdown Styles */
+.markdown-content {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 2em;
+  margin: 0.67em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 1.5em;
+  margin: 0.83em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 1.17em;
+  margin: 1em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(ul) {
+  list-style-type: disc;
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-content :deep(li) {
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(a) {
+  color: #007bff;
+  text-decoration: underline;
+}
+
+.markdown-content :deep(a:hover) {
+  color: #0056b3;
+}
+
+.markdown-content :deep(code) {
+  font-family: monospace;
+  background-color: #f8f9fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown-content :deep(pre) {
+  background-color: #f8f9fa;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.9em;
+  white-space: pre;
+}
+
+.markdown-content :deep(strong) {
+  font-weight: bold;
+}
+
+.markdown-content :deep(em) {
+  font-style: italic;
+}
+
+.markdown-content :deep(br) {
+  margin: 0.5em 0;
 }
 </style> 
