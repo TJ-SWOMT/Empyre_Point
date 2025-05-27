@@ -576,7 +576,9 @@ onMounted(async () => {
                             background: 'transparent',
                             resize: 'none',
                             outline: 'none',
-                            padding: '5px'
+                            padding: '5px',
+                            backgroundColor: 'transparent',
+                            boxShadow: 'none'
                         }"
                     ></textarea>
                     <div v-else v-html="marked(element.element_data?.content || '')"></div>
@@ -882,11 +884,14 @@ onMounted(async () => {
 
 .text-element.editing {
     outline: 2px solid #28a745;
-    background: white;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    background: transparent;
+    box-shadow: none;
 }
 
 .text-element.editing textarea {
     cursor: text;
+    background: transparent;
+    border: none;
+    box-shadow: none;
 }
 </style> 
