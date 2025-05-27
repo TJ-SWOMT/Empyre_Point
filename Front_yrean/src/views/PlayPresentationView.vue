@@ -2,51 +2,11 @@
 import { ref, onMounted, computed, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-
-// Native markdown parser function
-const parseMarkdown = (text) => {
-  if (!text) return '';
-
-  // Escape HTML to prevent XSS
-  const escapeHtml = (str) => {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  };
-
-  // First, escape HTML
-  text = escapeHtml(text);
-
-  // Then, process markdown
-  // Headers
-  text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>');
-  text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>');
-  text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>');
-  // Bold and italic
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>');
-  text = text.replace(/_(.*?)_/g, '<em>$1</em>');
-  // Lists
-  text = text.replace(/^\s*[-*]\s+(.*$)/gm, '<li>$1</li>');
-  text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
-  // Links
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-  // Code blocks
-  text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Line breaks
-  text = text.replace(/\n/g, '<br>');
-
-  return text;
-}
+import { marked } from 'marked'
 
 // Function to render element content with markdown
 const renderElementContent = (element) => {
-  return parseMarkdown(element.content)
+  return marked(element.content || '')
 }
 
 const route = useRoute()
@@ -294,7 +254,7 @@ watch(currentSlide, (newSlide) => {
                    display: 'flex',
                    alignItems: 'center',
                    justifyContent: 'center',
-                   overflow: 'hidden',
+                  //  overflow: 'hidden',
                  }">
               <div class="element-content" :style="{
                 width: '100%',
@@ -436,7 +396,7 @@ watch(currentSlide, (newSlide) => {
   background: rgba(255, 255, 255, 0.9);
   border: 2px solid rgba(0, 0, 0, 0.5);
   /* box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); */
-  overflow: hidden;
+  /* overflow: hidden; */
 }
 
 .element-content {

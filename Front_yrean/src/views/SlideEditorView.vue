@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed, nextTick } from 'vue'
+import { ref, onMounted, watch, computed, nextTick, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
@@ -30,9 +30,6 @@ const texts = ref([])
 
 const elements = ref([])
 const selectedElement = ref(null)
-const isDragging = ref(false)
-const dragStartPos = ref({ x: 0, y: 0 })
-const elementStartPos = ref({ x: 0, y: 0 })
 
 const isAddingText = ref(false)
 
@@ -318,69 +315,6 @@ const selectElement = (element) => {
     selectedElement.value = element
 }
 
-// Handle drag start
-const handleDragStart = (event, element) => {
-    if (event.target.closest('.text-editor')) return // Don't drag if clicking in editor
-    
-    isDragging.value = true
-    selectedElement.value = element
-    dragStartPos.value = {
-        x: event.clientX,
-        y: event.clientY
-    }
-    elementStartPos.value = {
-        x: element.x_position,
-        y: element.y_position
-    }
-    
-    // Add event listeners for drag
-    document.addEventListener('mousemove', handleDrag)
-    document.addEventListener('mouseup', handleDragEnd)
-}
-
-// Handle drag
-const handleDrag = (event) => {
-    if (!isDragging.value || !selectedElement.value) return
-    
-    const dx = event.clientX - dragStartPos.value.x
-    const dy = event.clientY - dragStartPos.value.y
-    
-    const newX = elementStartPos.value.x + dx
-    const newY = elementStartPos.value.y + dy
-    
-    // Update element position
-    updateElement(selectedElement.value.element_id, {
-        x_position: newX,
-        y_position: newY
-    })
-}
-
-// Handle drag end
-const handleDragEnd = () => {
-    isDragging.value = false
-    document.removeEventListener('mousemove', handleDrag)
-    document.removeEventListener('mouseup', handleDragEnd)
-}
-
-// Handle slide click to create new text element
-const handleSlideClick = (event) => {
-    if (!isAddingText.value) return // Only create text if we're in add text mode
-    if (event.target.closest('.element')) return // Don't create if clicking on existing element
-    
-    const rect = event.target.getBoundingClientRect()
-    const x = event.clientX - rect.left
-    const y = event.clientY - rect.top
-    
-    createTextElement(x, y)
-    isAddingText.value = false // Reset the mode after creating
-    
-    // Reset cursor
-    const slideContainer = document.querySelector('.slide-container')
-    if (slideContainer) {
-        slideContainer.style.cursor = 'default'
-    }
-}
-
 const isEditing = ref(false)
 const editingContent = ref('')
 const textEditor = ref(null)
@@ -460,6 +394,35 @@ const handleKeyDown = (event) => {
     }
 }
 
+const handleClickAway = (event) => {
+    // If click is outside both .text-element and .element-styling, deselect
+    if (
+        !event.target.closest('.text-element') &&
+        !event.target.closest('.element-styling')
+    ) {
+        selectedElement.value = null;
+        isEditing.value = false;
+    }
+}
+
+const handleSlideClick = (event) => {
+    if (!isAddingText.value) return; // Only create text if we're in add text mode
+    if (event.target.closest('.element')) return; // Don't create if clicking on existing element
+
+    const rect = event.target.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    createTextElement(x, y);
+    isAddingText.value = false; // Reset the mode after creating
+
+    // Reset cursor
+    const slideContainer = document.querySelector('.slide-container');
+    if (slideContainer) {
+        slideContainer.style.cursor = 'default';
+    }
+};
+
 onMounted(async () => {
     if (isEditMode.value) {
         await loadSlideData()
@@ -482,6 +445,12 @@ onMounted(async () => {
         box.value.addEventListener("mouseenter", updateDisplay)
         box.value.addEventListener("mouseleave", updateDisplay)
     }
+
+    document.addEventListener('mousedown', handleClickAway);
+})
+
+onUnmounted(() => {
+    document.removeEventListener('mousedown', handleClickAway);
 })
 </script>
 
@@ -534,7 +503,6 @@ onMounted(async () => {
                     height: element.height ? `${element.height}px` : 'auto',
                     zIndex: element.z_index
                 }"
-                @mousedown="(e) => handleDragStart(e, element)"
                 @click.stop="selectElement(element)"
             >
                 <div 
@@ -599,7 +567,6 @@ onMounted(async () => {
                     <option value="Times New Roman">Times New Roman</option>
                     <option value="Courier New">Courier New</option>
                 </select>
-                
                 <input 
                     type="number" 
                     v-model.number="selectedElement.element_data.font_size"
@@ -609,7 +576,6 @@ onMounted(async () => {
                     min="8"
                     max="72"
                 />
-                
                 <input 
                     type="color" 
                     v-model="selectedElement.element_data.font_color"
@@ -617,34 +583,6 @@ onMounted(async () => {
                         font_color: selectedElement.element_data.font_color 
                     })"
                 />
-                
-                <button 
-                    @click="updateElement(selectedElement.element_id, { 
-                        bold: !selectedElement.element_data.bold 
-                    })"
-                    :class="{ active: selectedElement.element_data.bold }"
-                >
-                    B
-                </button>
-                
-                <button 
-                    @click="updateElement(selectedElement.element_id, { 
-                        italic: !selectedElement.element_data.italic 
-                    })"
-                    :class="{ active: selectedElement.element_data.italic }"
-                >
-                    I
-                </button>
-                
-                <button 
-                    @click="updateElement(selectedElement.element_id, { 
-                        underline: !selectedElement.element_data.underline 
-                    })"
-                    :class="{ active: selectedElement.element_data.underline }"
-                >
-                    U
-                </button>
-                
                 <select 
                     v-model="selectedElement.element_data.text_align"
                     @change="updateElement(selectedElement.element_id, { 
@@ -655,6 +593,12 @@ onMounted(async () => {
                     <option value="center">Center</option>
                     <option value="right">Right</option>
                 </select>
+                <!-- New manual controls for position and size -->
+                <input type="number" v-model.number="selectedElement.x_position" @change="updateElement(selectedElement.element_id, { x_position: selectedElement.x_position })" min="0" placeholder="X" style="width:60px" />
+                <input type="number" v-model.number="selectedElement.y_position" @change="updateElement(selectedElement.element_id, { y_position: selectedElement.y_position })" min="0" placeholder="Y" style="width:60px" />
+                <input type="number" v-model.number="selectedElement.width" @change="updateElement(selectedElement.element_id, { width: selectedElement.width })" min="10" placeholder="Width" style="width:70px" />
+                <input type="number" v-model.number="selectedElement.height" @change="updateElement(selectedElement.element_id, { height: selectedElement.height })" min="10" placeholder="Height" style="width:70px" />
+                <input type="number" v-model.number="selectedElement.z_index" @change="updateElement(selectedElement.element_id, { z_index: selectedElement.z_index })" min="0" placeholder="Z" style="width:50px" />
             </div>
         </div>
 
