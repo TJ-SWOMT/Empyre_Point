@@ -3,6 +3,54 @@ import { ref, onMounted, computed, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 
+// Native markdown parser function
+const parseMarkdown = (text) => {
+  if (!text) return ''
+  
+  // Sanitize input to prevent XSS
+  const sanitize = (str) => {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+
+  // Process headers
+  text = text.replace(/^### (.*$)/gm, '<h3>$1</h3>')
+  text = text.replace(/^## (.*$)/gm, '<h2>$1</h2>')
+  text = text.replace(/^# (.*$)/gm, '<h1>$1</h1>')
+
+  // Process bold and italic
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
+  text = text.replace(/__(.*?)__/g, '<strong>$1</strong>')
+  text = text.replace(/_(.*?)_/g, '<em>$1</em>')
+
+  // Process lists
+  text = text.replace(/^\s*[-*]\s+(.*$)/gm, '<li>$1</li>')
+  text = text.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+
+  // Process links
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+
+  // Process code blocks
+  text = text.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  // Process line breaks
+  text = text.replace(/\n/g, '<br>')
+
+  // Sanitize the final output
+  return sanitize(text)
+}
+
+// Function to render element content with markdown
+const renderElementContent = (element) => {
+  return parseMarkdown(element.content)
+}
+
 const route = useRoute()
 const router = useRouter()
 const presentationId = route.params.id
@@ -268,7 +316,7 @@ watch(currentSlide, (newSlide) => {
                 padding: '2px',
                 lineHeight: '1.2'
               }">
-                {{ element.content }}
+                <div v-html="renderElementContent(element)" class="markdown-content"></div>
               </div>
             </div>
           </template>
@@ -507,5 +555,84 @@ watch(currentSlide, (newSlide) => {
   border-radius: 4px;
   font-size: 12px;
   z-index: 1000;
+}
+
+/* Markdown Styles */
+.markdown-content {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+}
+
+.markdown-content :deep(h1) {
+  font-size: 2em;
+  margin: 0.67em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(h2) {
+  font-size: 1.5em;
+  margin: 0.83em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(h3) {
+  font-size: 1.17em;
+  margin: 1em 0;
+  font-weight: bold;
+}
+
+.markdown-content :deep(ul) {
+  list-style-type: disc;
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+.markdown-content :deep(li) {
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(a) {
+  color: #007bff;
+  text-decoration: underline;
+}
+
+.markdown-content :deep(a:hover) {
+  color: #0056b3;
+}
+
+.markdown-content :deep(code) {
+  font-family: monospace;
+  background-color: #f8f9fa;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.markdown-content :deep(pre) {
+  background-color: #f8f9fa;
+  padding: 1em;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.markdown-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  font-size: 0.9em;
+  white-space: pre;
+}
+
+.markdown-content :deep(strong) {
+  font-weight: bold;
+}
+
+.markdown-content :deep(em) {
+  font-style: italic;
+}
+
+.markdown-content :deep(br) {
+  margin: 0.5em 0;
 }
 </style> 
