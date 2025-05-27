@@ -272,9 +272,6 @@ watch(currentSlide, (newSlide) => {
               </div>
             </div>
           </template>
-          <div v-else class="debug-info">
-            No elements on this slide (Slide {{ currentSlide.slide_number }})
-          </div>
         </div>
         <!-- Debug overlay -->
         <!-- <div class="debug-overlay" v-if="currentSlide">

@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 
 const route = useRoute()
 const presentationId = route.params.id
+const presentationTitle = ref('')
 const router = useRouter()
 const hasSlides = ref(false)
 const error = ref('')
@@ -16,6 +17,11 @@ const checkForSlides = async () => {
     const response = await presentationApi.getPresentation(presentationId)
     if (response.success && response.presentation?.slides) {
       hasSlides.value = response.presentation.slides.length > 0
+    }
+    if (response.success && response.presentation?.title){
+        presentationTitle.value = response.presentation.title
+    } else {
+        presentationTitle.value = 'Presentation ' + presentationId
     }
   } catch (err) {
     error.value = handleApiError(err)
