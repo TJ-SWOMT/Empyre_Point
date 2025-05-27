@@ -145,6 +145,56 @@ export const presentationApi = {
       }
     })
     return response.json()
+  },
+
+  // Element endpoints
+  async getSlideElements(slide_id) {
+    const response = await fetch(`${API_BASE_URL}/slides/${slide_id}/elements`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    return response.json()
+  },
+
+  async createTextElement(slide_id, elementData) {
+    const response = await fetch(`${API_BASE_URL}/slides/${slide_id}/elements/text`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        ...elementData,
+        element_type: 'text'
+      })
+    })
+    return response.json()
+  },
+
+  async updateElement(element_id, elementData) {
+    const response = await fetch(`${API_BASE_URL}/elements/${element_id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify(elementData)
+    })
+    return response.json()
+  },
+
+  async deleteElement(element_id) {
+    const response = await fetch(`${API_BASE_URL}/elements/${element_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    return response.json()
   }
 }
 

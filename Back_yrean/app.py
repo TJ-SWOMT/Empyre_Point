@@ -260,5 +260,112 @@ def delete_slide(slide_id):
         logger.error(f"Error deleting slide: {str(e)}")
         return jsonify({'error': str(e)}), 400
 
+@app.route('/api/slides/<int:slide_id>/elements', methods=['GET'])
+def get_slide_elements(slide_id):
+    try:
+        elements = presentations_service.get_slide_elements(slide_id)
+        return jsonify({
+            'success': True,
+            'elements': elements
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error retrieving slide elements: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/slides/<int:slide_id>/elements/text', methods=['POST'])
+def create_text_element(slide_id):
+    try:
+        data = request.get_json()
+        logger.debug(f"Received text element creation data: {data}")
+        
+        # Validate required fields
+        required_fields = ['content', 'x_position', 'y_position']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            error_msg = f'Missing required fields: {", ".join(missing_fields)}'
+            logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
+        
+        # Create text element
+        element = presentations_service.create_text_element(
+            slide_id=slide_id,
+            content=data['content'],
+            x_position=float(data['x_position']),
+            y_position=float(data['y_position']),
+            width=data.get('width'),
+            height=data.get('height'),
+            font_family=data.get('font_family', 'Arial'),
+            font_size=data.get('font_size', 18),
+            font_color=data.get('font_color', '#000000'),
+            bold=data.get('bold', False),
+            italic=data.get('italic', False),
+            underline=data.get('underline', False),
+            text_align=data.get('text_align', 'left'),
+            z_index=data.get('z_index', 0)
+        )
+        
+        return jsonify({
+            'success': True,
+            'element': element
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Text element creation error: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/elements/<int:element_id>', methods=['PUT'])
+def update_element(element_id):
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided for update'}), 400
+        
+        # Update element based on its type
+        if data.get('element_type') == 'text':
+            element = presentations_service.update_text_element(
+                element_id=element_id,
+                content=data.get('content'),
+                x_position=data.get('x_position'),
+                y_position=data.get('y_position'),
+                width=data.get('width'),
+                height=data.get('height'),
+                font_family=data.get('font_family'),
+                font_size=data.get('font_size'),
+                font_color=data.get('font_color'),
+                bold=data.get('bold'),
+                italic=data.get('italic'),
+                underline=data.get('underline'),
+                text_align=data.get('text_align'),
+                z_index=data.get('z_index')
+            )
+        else:
+            return jsonify({'error': 'Unsupported element type'}), 400
+        
+        if element:
+            return jsonify({
+                'success': True,
+                'element': element
+            }), 200
+        else:
+            return jsonify({'error': 'Element not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error updating element: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/elements/<int:element_id>', methods=['DELETE'])
+def delete_element(element_id):
+    try:
+        success = presentations_service.delete_element(element_id)
+        if success:
+            return jsonify({'success': True}), 200
+        else:
+            return jsonify({'error': 'Element not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error deleting element: {str(e)}")
+        return jsonify({'error': str(e)}), 400
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True) 

@@ -1,15 +1,16 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, watch, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
+import { marked } from 'marked'
 
 const route = useRoute()
 const router = useRouter()
 const presentationId = route.params.id
-const slideId = route.params.slide_id
+const slideId = ref(route.params.slide_id)
 const error = ref('')
 const isSubmitting = ref(false)
-const isEditMode = computed(() => !!slideId)
+const isEditMode = computed(() => !!slideId.value)
 
 // Initialize background color from session storage, but use presentation-specific key
 const getStoredBackgroundColor = () => {
@@ -27,6 +28,14 @@ watch(backgroundColor, (newColor) => {
 
 const texts = ref([])
 
+const elements = ref([])
+const selectedElement = ref(null)
+const isDragging = ref(false)
+const dragStartPos = ref({ x: 0, y: 0 })
+const elementStartPos = ref({ x: 0, y: 0 })
+
+const isAddingText = ref(false)
+
 const loadSlideData = async () => {
     if (!isEditMode.value) return
 
@@ -35,7 +44,7 @@ const loadSlideData = async () => {
         if (response.error) throw new Error(response.error)
         
         // Convert slideId to number for comparison since it comes from route params
-        const slide = response.presentation.slides.find(s => Number(s.slide_id) === Number(slideId))
+        const slide = response.presentation.slides.find(s => Number(s.slide_id) === Number(slideId.value))
         if (slide) {
             slideData.value = {
                 ...slide,
@@ -45,6 +54,18 @@ const loadSlideData = async () => {
         } else {
             throw new Error('Slide not found')
         }
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
+}
+
+const loadSlideElements = async () => {
+    if (!isEditMode.value) return
+
+    try {
+        const response = await presentationApi.getSlideElements(slideId.value)
+        if (response.error) throw new Error(response.error)
+        elements.value = response.elements || []
     } catch (err) {
         error.value = handleApiError(err)
     }
@@ -62,7 +83,7 @@ const saveSlide = async () => {
             }
             // Update existing slide
             response = await presentationApi.updateSlide(
-                Number(slideId), // Ensure slideId is a number
+                Number(slideId.value), // Ensure slideId is a number
                 slideData.value.slide_number,
                 backgroundColor.value,
                 slideData.value.background_image_url
@@ -80,20 +101,30 @@ const saveSlide = async () => {
             throw new Error(response.error)
         }
         
-        // Redirect back to the presentation view
-        router.push(`/presentations/${presentationId}`)
+        // For new slides, update the URL with the new slide ID
+        if (!isEditMode.value && response.slide) {
+            router.replace(`/presentations/${presentationId}/slides/${response.slide.slide_id}`)
+        } else {
+            // Redirect back to the presentation view
+            router.push(`/presentations/${presentationId}`)
+        }
+
+        return response
     } catch (err) {
         error.value = handleApiError(err)
+        return null
     } finally {
         isSubmitting.value = false
     }
 }
 
 const addText = () => {
-    texts.value.push({
-        id: texts.value.length + 1,
-        text: ''
-    })
+    isAddingText.value = true
+    // Change cursor to indicate we're in text adding mode
+    const slideContainer = document.querySelector('.slide-container')
+    if (slideContainer) {
+        slideContainer.style.cursor = 'text'
+    }
 }
 
 const deleteText = (id) => {
@@ -108,9 +139,331 @@ const box = ref(null)
 const pageX = ref(null) 
 const pageY = ref(null)
 
+// Update the helper function to validate integer IDs
+const validateElementId = (id) => {
+    if (!id) {
+        console.error('Missing element ID')
+        throw new Error('Missing element ID')
+    }
+    const numId = typeof id === 'string' ? parseInt(id, 10) : id
+    if (isNaN(numId)) {
+        console.error('Invalid element ID:', id)
+        throw new Error('Invalid element ID')
+    }
+    return numId
+}
+
+// Add a new ref to track the current editing state
+const currentEditState = ref(null)
+
+const updateElement = async (elementId, updates) => {
+    try {
+        const numericId = validateElementId(elementId)
+        console.log('Updating element with ID:', numericId, 'Updates:', updates)
+        
+        const response = await presentationApi.updateElement(numericId, {
+            element_type: 'text',
+            ...updates
+        })
+        
+        console.log('Server response:', JSON.stringify(response, null, 2))
+
+        if (response.error) throw new Error(response.error)
+        
+        if (!response.success || !response.element) {
+            console.error('Invalid server response:', response)
+            throw new Error('Invalid server response')
+        }
+
+        // Create a new array to trigger reactivity
+        const updatedElements = elements.value.map(e => {
+            if (validateElementId(e.element_id) === numericId) {
+                // Extract element_data properties from the server response
+                const elementData = {
+                    content: response.element.content,
+                    font_family: response.element.font_family,
+                    font_size: response.element.font_size,
+                    font_color: response.element.font_color,
+                    bold: response.element.bold,
+                    italic: response.element.italic,
+                    underline: response.element.underline,
+                    text_align: response.element.text_align
+                }
+
+                // Create the updated element with the correct structure
+                const updatedElement = {
+                    element_id: numericId,
+                    element_type: 'text',
+                    x_position: response.element.x_position,
+                    y_position: response.element.y_position,
+                    width: response.element.width,
+                    height: response.element.height,
+                    z_index: response.element.z_index,
+                    element_data: elementData
+                }
+
+                console.log('Updated element:', JSON.stringify(updatedElement, null, 2))
+                return updatedElement
+            }
+            return e
+        })
+
+        // Force a reactive update by creating a new array
+        elements.value = [...updatedElements]
+
+        // Update selectedElement if it's the one being edited
+        if (selectedElement.value?.element_id === numericId) {
+            const newSelected = updatedElements.find(e => validateElementId(e.element_id) === numericId)
+            console.log('Setting new selected element:', JSON.stringify(newSelected, null, 2))
+            selectedElement.value = { ...newSelected }
+        }
+
+        // Force a re-render of the elements
+        nextTick(() => {
+            console.log('Elements after nextTick:', JSON.stringify(elements.value, null, 2))
+        })
+
+        return true
+    } catch (err) {
+        error.value = handleApiError(err)
+        console.error('Error updating element:', err)
+        return false
+    }
+}
+
+// Update createTextElement to handle integer IDs
+const createTextElement = async (x, y) => {
+    try {
+        // For new slides, we need to save the slide first
+        if (!isEditMode.value) {
+            const response = await saveSlide()
+            if (!response) {
+                throw new Error('Failed to create slide')
+            }
+            // Update the slideId from the response
+            slideId.value = response.slide.slide_id
+        }
+
+        const defaultElementData = {
+            content: 'New Text',
+            font_family: 'Arial',
+            font_size: 18,
+            font_color: '#000000',
+            bold: false,
+            italic: false,
+            underline: false,
+            text_align: 'left'
+        }
+
+        const response = await presentationApi.createTextElement(slideId.value, {
+            content: defaultElementData.content,
+            x_position: x,
+            y_position: y,
+            width: 200,
+            height: 100,
+            font_family: defaultElementData.font_family,
+            font_size: defaultElementData.font_size,
+            font_color: defaultElementData.font_color,
+            bold: defaultElementData.bold,
+            italic: defaultElementData.italic,
+            underline: defaultElementData.underline,
+            text_align: defaultElementData.text_align,
+            z_index: elements.value.length
+        })
+
+        if (response.error) throw new Error(response.error)
+        
+        // Ensure the element has a numeric ID
+        const elementId = validateElementId(response.element.element_id)
+        const newElement = {
+            ...response.element,
+            element_id: elementId,
+            element_data: response.element.element_data || defaultElementData
+        }
+        
+        console.log('Created new element:', newElement)
+        elements.value.push(newElement)
+        selectedElement.value = newElement
+        
+        // Use requestAnimationFrame for more reliable timing
+        requestAnimationFrame(() => {
+            startEditing(newElement)
+        })
+    } catch (err) {
+        error.value = handleApiError(err)
+        console.error('Error creating text element:', err)
+    }
+}
+
+// Update deleteElement to handle integer IDs
+const deleteElement = async (elementId) => {
+    try {
+        const numericId = validateElementId(elementId)
+        const response = await presentationApi.deleteElement(numericId)
+        if (response.error) throw new Error(response.error)
+        
+        elements.value = elements.value.filter(e => validateElementId(e.element_id) !== numericId)
+        if (selectedElement.value?.element_id === numericId) {
+            selectedElement.value = null
+            isEditing.value = false
+        }
+    } catch (err) {
+        error.value = handleApiError(err)
+        console.error('Error deleting element:', err)
+    }
+}
+
+// Handle element selection
+const selectElement = (element) => {
+    selectedElement.value = element
+}
+
+// Handle drag start
+const handleDragStart = (event, element) => {
+    if (event.target.closest('.text-editor')) return // Don't drag if clicking in editor
+    
+    isDragging.value = true
+    selectedElement.value = element
+    dragStartPos.value = {
+        x: event.clientX,
+        y: event.clientY
+    }
+    elementStartPos.value = {
+        x: element.x_position,
+        y: element.y_position
+    }
+    
+    // Add event listeners for drag
+    document.addEventListener('mousemove', handleDrag)
+    document.addEventListener('mouseup', handleDragEnd)
+}
+
+// Handle drag
+const handleDrag = (event) => {
+    if (!isDragging.value || !selectedElement.value) return
+    
+    const dx = event.clientX - dragStartPos.value.x
+    const dy = event.clientY - dragStartPos.value.y
+    
+    const newX = elementStartPos.value.x + dx
+    const newY = elementStartPos.value.y + dy
+    
+    // Update element position
+    updateElement(selectedElement.value.element_id, {
+        x_position: newX,
+        y_position: newY
+    })
+}
+
+// Handle drag end
+const handleDragEnd = () => {
+    isDragging.value = false
+    document.removeEventListener('mousemove', handleDrag)
+    document.removeEventListener('mouseup', handleDragEnd)
+}
+
+// Handle slide click to create new text element
+const handleSlideClick = (event) => {
+    if (!isAddingText.value) return // Only create text if we're in add text mode
+    if (event.target.closest('.element')) return // Don't create if clicking on existing element
+    
+    const rect = event.target.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+    
+    createTextElement(x, y)
+    isAddingText.value = false // Reset the mode after creating
+    
+    // Reset cursor
+    const slideContainer = document.querySelector('.slide-container')
+    if (slideContainer) {
+        slideContainer.style.cursor = 'default'
+    }
+}
+
+const isEditing = ref(false)
+const editingContent = ref('')
+const textEditor = ref(null)
+
+// Update the text editing functions to use a more reliable focus method
+const startEditing = (element) => {
+    selectedElement.value = element
+    isEditing.value = true
+    // Store the initial state
+    currentEditState.value = {
+        content: element.element_data?.content || '',
+        element_id: element.element_id
+    }
+    editingContent.value = currentEditState.value.content
+    
+    // Use requestAnimationFrame to ensure the DOM is updated
+    requestAnimationFrame(() => {
+        const textarea = document.querySelector('.text-element.editing textarea')
+        if (textarea) {
+            textarea.focus()
+            // Move cursor to end of text
+            const length = textarea.value.length
+            textarea.setSelectionRange(length, length)
+        }
+    })
+}
+
+const finishEditing = async () => {
+    if (!selectedElement.value) return
+    
+    try {
+        // Don't update if content hasn't changed
+        if (editingContent.value === selectedElement.value.element_data?.content) {
+            isEditing.value = false
+            return
+        }
+
+        // Only update if we have content
+        if (editingContent.value.trim()) {
+            const success = await updateElement(selectedElement.value.element_id, {
+                content: editingContent.value
+            })
+            
+            if (success) {
+                // Update was successful, clear editing state
+                isEditing.value = false
+                editingContent.value = ''
+            } else {
+                // If update failed, revert to original content
+                editingContent.value = selectedElement.value.element_data?.content || ''
+            }
+        } else {
+            // If content is empty, revert to original content
+            editingContent.value = selectedElement.value.element_data?.content || ''
+            isEditing.value = false
+        }
+    } catch (err) {
+        error.value = handleApiError(err)
+        console.error('Error finishing edit:', err)
+        // Revert to original content on error
+        editingContent.value = selectedElement.value.element_data?.content || ''
+    }
+}
+
+const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
+        finishEditing()
+    } else if (event.key === 'Escape') {
+        event.preventDefault()
+        // Revert to original content
+        if (currentEditState.value) {
+            editingContent.value = currentEditState.value.content
+        }
+        isEditing.value = false
+        currentEditState.value = null
+    }
+}
+
 onMounted(async () => {
     if (isEditMode.value) {
         await loadSlideData()
+        await loadSlideElements()
     }
 
     box.value = document.querySelector(".slide-container")
@@ -146,20 +499,161 @@ onMounted(async () => {
                         title="Choose slide background color"
                     />
                 </div>
-                <button @click="addText">Add Text</button>
+                <button 
+                    @click="addText" 
+                    :class="{ active: isAddingText }"
+                    title="Click to add text, then click on the slide where you want the text to appear"
+                >
+                    Add Text
+                </button>
                 <button @click="addImage">Add Image</button>
             </div>
         </div>
 
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <div class="slide-container" :style="{ backgroundColor: backgroundColor }">
-            <form v-for="text in texts" :key="text.id">
-                <input type="text" placeholder="Text" />
-                <button @click="deleteText(text.id)">x</button>
-            </form>
-            <p><code>pageX</code>: <span id="x">n/a</span></p>
-            <p><code>pageY</code>: <span id="y">n/a</span></p>
+        <div 
+            class="slide-container" 
+            :style="{ backgroundColor: backgroundColor }"
+            @click="handleSlideClick"
+        >
+            <!-- Text Elements -->
+            <div 
+                v-for="element in elements" 
+                :key="`element-${element.element_id}-${element.element_data?.content}`"
+                class="element text-element"
+                :class="{ 
+                    'selected': selectedElement?.element_id === element.element_id,
+                    'editing': selectedElement?.element_id === element.element_id && isEditing
+                }"
+                :style="{
+                    position: 'absolute',
+                    left: `${element.x_position}px`,
+                    top: `${element.y_position}px`,
+                    width: element.width ? `${element.width}px` : 'auto',
+                    height: element.height ? `${element.height}px` : 'auto',
+                    zIndex: element.z_index
+                }"
+                @mousedown="(e) => handleDragStart(e, element)"
+                @click.stop="selectElement(element)"
+            >
+                <div 
+                    v-if="selectedElement?.element_id === element.element_id"
+                    class="element-controls"
+                >
+                    <button @click.stop="deleteElement(element.element_id)" class="delete-btn">×</button>
+                </div>
+                
+                <div 
+                    class="text-editor"
+                    :style="{
+                        fontFamily: element.element_data?.font_family || 'Arial',
+                        fontSize: `${element.element_data?.font_size || 18}px`,
+                        color: element.element_data?.font_color || '#000000',
+                        fontWeight: element.element_data?.bold ? 'bold' : 'normal',
+                        fontStyle: element.element_data?.italic ? 'italic' : 'normal',
+                        textDecoration: element.element_data?.underline ? 'underline' : 'none',
+                        textAlign: element.element_data?.text_align || 'left'
+                    }"
+                    @dblclick.stop="startEditing(element)"
+                >
+                    <textarea
+                        v-if="selectedElement?.element_id === element.element_id && isEditing"
+                        v-model="editingContent"
+                        @blur="finishEditing"
+                        @keydown="handleKeyDown"
+                        :style="{
+                            fontFamily: element.element_data?.font_family || 'Arial',
+                            fontSize: `${element.element_data?.font_size || 18}px`,
+                            color: element.element_data?.font_color || '#000000',
+                            fontWeight: element.element_data?.bold ? 'bold' : 'normal',
+                            fontStyle: element.element_data?.italic ? 'italic' : 'normal',
+                            textDecoration: element.element_data?.underline ? 'underline' : 'none',
+                            textAlign: element.element_data?.text_align || 'left',
+                            width: '100%',
+                            height: '100%',
+                            border: 'none',
+                            background: 'transparent',
+                            resize: 'none',
+                            outline: 'none',
+                            padding: '5px'
+                        }"
+                    ></textarea>
+                    <div v-else v-html="marked(element.element_data?.content || '')"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Element Styling Controls -->
+        <div v-if="selectedElement" class="element-styling">
+            <div class="styling-controls">
+                <select 
+                    v-model="selectedElement.element_data.font_family"
+                    @change="updateElement(selectedElement.element_id, { 
+                        font_family: selectedElement.element_data.font_family 
+                    })"
+                >
+                    <option value="Arial">Arial</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                </select>
+                
+                <input 
+                    type="number" 
+                    v-model.number="selectedElement.element_data.font_size"
+                    @change="updateElement(selectedElement.element_id, { 
+                        font_size: selectedElement.element_data.font_size 
+                    })"
+                    min="8"
+                    max="72"
+                />
+                
+                <input 
+                    type="color" 
+                    v-model="selectedElement.element_data.font_color"
+                    @change="updateElement(selectedElement.element_id, { 
+                        font_color: selectedElement.element_data.font_color 
+                    })"
+                />
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        bold: !selectedElement.element_data.bold 
+                    })"
+                    :class="{ active: selectedElement.element_data.bold }"
+                >
+                    B
+                </button>
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        italic: !selectedElement.element_data.italic 
+                    })"
+                    :class="{ active: selectedElement.element_data.italic }"
+                >
+                    I
+                </button>
+                
+                <button 
+                    @click="updateElement(selectedElement.element_id, { 
+                        underline: !selectedElement.element_data.underline 
+                    })"
+                    :class="{ active: selectedElement.element_data.underline }"
+                >
+                    U
+                </button>
+                
+                <select 
+                    v-model="selectedElement.element_data.text_align"
+                    @change="updateElement(selectedElement.element_id, { 
+                        text_align: selectedElement.element_data.text_align 
+                    })"
+                >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                </select>
+            </div>
         </div>
 
         <div class="action-buttons">
@@ -187,6 +681,7 @@ onMounted(async () => {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
+    cursor: crosshair;
 }
 
 .header-container {
@@ -278,5 +773,120 @@ onMounted(async () => {
     background-color: #ccc;
     border-color: #999;
     cursor: not-allowed;
+}
+
+.slide-container {
+    position: relative;
+    cursor: crosshair;
+}
+
+.element {
+    position: absolute;
+    cursor: move;
+    user-select: none;
+}
+
+.element.selected {
+    outline: 2px solid #007bff;
+}
+
+.element-controls {
+    position: absolute;
+    top: -20px;
+    right: 0;
+    z-index: 1000;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+}
+
+.text-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 30px;
+}
+
+.element-styling {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.styling-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.styling-controls button {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.styling-controls button.active {
+    background-color: #0056b3;
+    color: white;
+}
+
+.styling-controls select,
+.styling-controls input[type="number"] {
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.styling-controls input[type="color"] {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.text-element {
+    min-width: 100px;
+    min-height: 30px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    padding: 5px;
+}
+
+.text-element.selected {
+    outline: 2px solid #007bff;
+    background: white;
+}
+
+.text-element.editing {
+    outline: 2px solid #28a745;
+    background: white;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.text-element.editing textarea {
+    cursor: text;
 }
 </style> 
