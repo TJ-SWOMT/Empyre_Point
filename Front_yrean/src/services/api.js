@@ -101,7 +101,7 @@ export const presentationApi = {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        // 'Authorization': `Bearer ${localStorage.getItem('token')}`
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     })
     return response.json()

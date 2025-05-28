@@ -40,8 +40,14 @@ const viewPresentation = (presentationId) => {
   router.push(`/presentations/${presentationId}`)
 }
 
-const deletePresentation = (presentationId) => {
-  presentationApi.deletePresentation(presentationId)
+const deletePresentation = async (presentationId, event) => {
+  event.stopPropagation()
+  try {
+    await presentationApi.deletePresentation(presentationId)
+    await fetchPresentations()
+  } catch (err) {
+    error.value = handleApiError(err)
+  }
 }
 
 onMounted(fetchPresentations)
@@ -75,10 +81,11 @@ onMounted(fetchPresentations)
         <p v-if="presentation.description">{{ presentation.description }}</p>
         <div class="presentation-meta">
           <span>Created: {{ new Date(presentation.created_at).toLocaleDateString() }}</span>
+          <br>
           <span v-if="presentation.slide_count">Slides: {{ presentation.slide_count }}</span>
         </div>
         <button @click="viewPresentation(presentation.presentation_id)" class="btn btn-secondary"> View Presentation</button>
-        <button @click="deletePresentation(presentation.presentation_id)" class="btn btn-danger"> Delete Presentation</button>
+        <button @click="(event) => deletePresentation(presentation.presentation_id, event)" class="btn btn-danger"> Delete Presentation</button>
       </div>
     </div>
   </div>
