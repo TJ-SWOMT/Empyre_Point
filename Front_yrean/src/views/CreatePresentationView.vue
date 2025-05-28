@@ -14,19 +14,32 @@ const createPresentation = async () => {
         error.value = 'Please enter a title'
         return
     }
-    const user_id = JSON.parse(sessionStorage.getItem('user')).user_id
-    console.log('user22222', user_id)
+
+    // Get and validate user data from session storage
+    const userData = sessionStorage.getItem('user')
+    if (!userData) {
+        error.value = 'Please log in to create a presentation'
+        router.push('/login')
+        return
+    }
+
+    let user_id
+    try {
+        const parsedUser = JSON.parse(userData)
+        if (!parsedUser || !parsedUser.user_id) {
+            throw new Error('Invalid user data')
+        }
+        user_id = parsedUser.user_id
+    } catch (err) {
+        console.error('Error parsing user data:', err)
+        error.value = 'Session expired. Please log in again.'
+        router.push('/login')
+        return
+    }
+
     try {
         isSubmitting.value = true
         error.value = ''
-
-        // const user = sessionStorage.getItem('user')
-        console.log('user????', user_id)
-
-        if (!user_id) {
-            router.push('/login')
-            return
-        }
 
         const data = await presentationApi.createPresentation(
             user_id,

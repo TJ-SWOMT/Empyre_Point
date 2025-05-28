@@ -47,7 +47,8 @@ onMounted(checkForSlides)
 
 <template>
   <div class="presentation-container">
-    <h1>Presentation {{ presentationId }}</h1>
+    <h1 v-if=presentationTitle>{{ presentationTitle }}</h1>
+    <h1 v-else>Presentation {{ presentationId }}</h1>
     <div v-if="error" class="error-message">{{ error }}</div>
     <div class="presentation-actions">
       <button @click="addSlide">Add Slide</button>
