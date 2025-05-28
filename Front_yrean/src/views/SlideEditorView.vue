@@ -138,6 +138,8 @@ const saveSlide = async () => {
         
         let response
         if (isEditMode.value) {
+            console.log('isEditMode.value', isEditMode.value)
+            console.log('slideData.value', slideData.value)
             if (!slideData.value) {
                 throw new Error('Slide data not loaded')
             }
@@ -209,6 +211,15 @@ const addText = () => {
 
 const deleteText = (id) => {
     texts.value = texts.value.filter(text => text.id !== id)
+}
+
+const deleteSlide = async () => {
+    try {
+        await presentationApi.deleteSlide(slideId.value)
+        router.push(`/presentations/${presentationId}`)
+    } catch (err) {
+        error.value = handleApiError(err)
+    }
 }
 
 const addImage = async () => {
@@ -851,6 +862,7 @@ watch(scale, (newScale) => {
                     Add Text
                 </button>
                 <button @click="addImage">Add Image</button>
+                <button @click="deleteSlide">Delete Slide</button>
             </div>
         </div>
 
