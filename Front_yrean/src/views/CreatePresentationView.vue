@@ -48,7 +48,7 @@ const createPresentation = async () => {
         )
 
         if (data.success && data.presentation?.presentation_id) {
-            router.push(`/presentation/${data.presentation.presentation_id}`)
+            router.push(`/presentations/${data.presentation.presentation_id}`)
         } else {
             error.value = data.error || 'Failed to create presentation'
         }

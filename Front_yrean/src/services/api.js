@@ -1,19 +1,18 @@
-import axios from 'axios'
-
 const API_BASE_URL = 'http://localhost:5001/api'
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
-  headers: { 'Content-Type': 'application/json' }
-})
-
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+const getAuthHeader = () => {
+  const userData = sessionStorage.getItem('user')
+  if (!userData) return {}
+  try {
+    const user = JSON.parse(userData)
+    return {
+      'Authorization': `Bearer ${user.user_id}`
+    }
+  } catch (err) {
+    console.error('Error parsing user data:', err)
+    return {}
   }
-  return config
-}, error => Promise.reject(error))
+}
 
 // Auth endpoints
 export const authApi = {
@@ -50,7 +49,7 @@ export const presentationApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${user_id}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({ user_id, title, description })
     })
@@ -63,7 +62,7 @@ export const presentationApi = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
     return response.json()
@@ -76,7 +75,7 @@ export const presentationApi = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
 
@@ -89,7 +88,7 @@ export const presentationApi = {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({ title, description })
     })
@@ -101,7 +100,7 @@ export const presentationApi = {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
     return response.json()
@@ -113,7 +112,7 @@ export const presentationApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({ slide_number, background_color, background_image_url, presentation_id })
     })
@@ -125,7 +124,7 @@ export const presentationApi = {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({ 
         slide_number: Number(slide_number), 
@@ -141,7 +140,7 @@ export const presentationApi = {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
     return response.json()
@@ -153,7 +152,7 @@ export const presentationApi = {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
     return response.json()
@@ -164,7 +163,7 @@ export const presentationApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({
         ...elementData,
@@ -179,7 +178,7 @@ export const presentationApi = {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify(elementData)
     })
@@ -191,7 +190,7 @@ export const presentationApi = {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       }
     })
     return response.json()
@@ -204,6 +203,7 @@ export const presentationApi = {
     
     const response = await fetch(`${API_BASE_URL}/upload/image`, {
       method: 'POST',
+      headers: getAuthHeader(),
       body: formData
     })
     return response.json()
@@ -215,7 +215,7 @@ export const presentationApi = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeader()
       },
       body: JSON.stringify({
         ...elementData,
@@ -232,6 +232,4 @@ export const handleApiError = (error) => {
     return error.response.data.error || 'An error occurred'
   }
   return error.message || 'An unexpected error occurred'
-}
-
-export default api 
+} 
