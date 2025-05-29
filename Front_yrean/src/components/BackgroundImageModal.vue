@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { presentationApi, handleApiError } from '../services/api'
 
 const props = defineProps({
@@ -28,6 +28,8 @@ const error = ref('')
 const opacity = ref(props.currentOpacity)
 const fit = ref(props.currentFit)
 const previewUrl = ref(props.currentImage)
+
+const isEditMode = computed(() => !!props.currentImage)
 
 const fitOptions = [
   { value: 'cover', label: 'Cover (Fill)' },
@@ -102,21 +104,25 @@ const handleRemove = () => {
 const handleClose = () => {
   emit('close')
 }
+
+watch(() => props.currentImage, (newImage) => {
+  previewUrl.value = newImage
+})
 </script>
 
 <template>
   <div v-if="show" class="modal-overlay" @click="handleClose">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h2>Background Image Settings</h2>
+        <h2>{{ isEditMode ? 'Edit Background Image' : 'Set Background Image' }}</h2>
         <button class="close-button" @click="handleClose">&times;</button>
       </div>
 
       <div class="modal-body">
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <!-- Image Upload -->
-        <div class="upload-section">
+        <!-- Upload Section - Only show when no image exists -->
+        <div v-if="!isEditMode" class="upload-section">
           <label class="upload-button">
             <input
               type="file"
@@ -128,7 +134,7 @@ const handleClose = () => {
           </label>
         </div>
 
-        <!-- Preview -->
+        <!-- Preview - Always show when there's an image -->
         <div v-if="previewUrl" class="preview-section">
           <div
             class="preview-container"
@@ -142,7 +148,7 @@ const handleClose = () => {
           ></div>
         </div>
 
-        <!-- Controls -->
+        <!-- Controls - Always show when there's an image -->
         <div v-if="previewUrl" class="controls-section">
           <!-- Fit Options -->
           <div class="control-group">
@@ -169,10 +175,18 @@ const handleClose = () => {
             <span class="opacity-value">{{ Math.round(opacity * 100) }}%</span>
           </div>
 
-          <!-- Remove Button -->
-          <button class="remove-button" @click="handleRemove">
-            Remove Background Image
-          </button>
+          <!-- Action Buttons -->
+          <div class="action-buttons">
+            <!-- Remove Button -->
+            <button class="remove-button" @click="handleRemove">
+              Remove Background Image
+            </button>
+            
+            <!-- Upload New Button - Only show in edit mode -->
+            <button v-if="isEditMode" class="upload-new-button" @click="previewUrl = null">
+              Upload New Image
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -288,18 +302,29 @@ const handleClose = () => {
   text-align: right;
 }
 
-.remove-button {
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.upload-new-button {
   padding: 10px;
-  background-color: #dc3545;
+  background-color: var(--primary-color);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   transition: background-color 0.2s;
+  flex: 1;
 }
 
-.remove-button:hover {
-  background-color: #c82333;
+.upload-new-button:hover {
+  background-color: var(--primary-hover);
+}
+
+.remove-button {
+  flex: 1;
 }
 
 .error-message {
