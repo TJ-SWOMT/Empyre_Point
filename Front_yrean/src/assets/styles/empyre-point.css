@@ -265,25 +265,30 @@ input[type="color"] {
 
 }
 
-.presentation-actions, .slide-actions {
+.slide-actions, .presentation-actions , .presentation-actions {
   position: fixed;
-  top: calc(var(--header-height) + var(--presentation-header-height));
   left: 0;
   right: 0;
   z-index: 100;
+  top: calc(var(--header-height) + var(--presentation-header-height));
   display: flex;
   flex-direction: row;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
   align-items: center;
-  gap: var(--spacing-lg);
-  background-color: var(--background-color);
+  justify-content: center;
+  width: 100%;
   box-sizing: border-box;
   padding: var(--spacing-md);
+  background: none;
 }
 
-.slide-actions {
-  top: calc(var(--header-height) + var(--presentation-header-height));
-  flex-direction: column;
+.slide-actions, .presentation-actions  > * {
+  flex: 0 1 auto;
+  min-width: 120px;
+  max-width: 100vw;
+  font-size: 1rem;
+  transition: all 0.2s;
 }
 
 .presentation-actions button {
@@ -1058,9 +1063,21 @@ textarea {
     padding: var(--spacing-sm);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    top: calc(var(--header-height) + var(--presentation-header-height));
+    flex-direction: column;
+    gap: 12px;
     padding: var(--spacing-sm);
-    gap: var(--spacing-md);
+  }
+
+  .slide-actions, .presentation-actions  > * {
+    min-width: 100px;
+    font-size: 0.95rem;
+    padding: 8px 10px;
   }
 
   .slides-container {
@@ -1171,9 +1188,23 @@ textarea {
     padding: var(--spacing-xs);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    top: calc(var(--header-height) + var(--presentation-header-height));
+    flex-direction: column;
+    gap: 8px;
     padding: var(--spacing-xs);
-    gap: var(--spacing-sm);
+    overflow-x: auto;
+    width: 100vw;
+  }
+
+  .slide-actions, .presentation-actions  > * {
+    min-width: 80px;
+    font-size: 0.85rem;
+    padding: 6px 6px;
   }
 
   .presentation-title {
@@ -1328,13 +1359,14 @@ textarea {
     padding: var(--spacing-xs);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    top: calc(var(--header-height) + var(--presentation-header-height));
     padding: var(--spacing-xs);
     flex-direction: row;
     flex-wrap: wrap;
   }
 
-  .presentation-actions button {
+  .slide-actions, .presentation-actions  button { 
     flex: 0 1 auto;
     min-width: 120px;
   }

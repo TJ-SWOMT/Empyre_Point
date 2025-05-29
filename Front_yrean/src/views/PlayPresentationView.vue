@@ -22,7 +22,15 @@ const slideElements = ref({})
 const elementsLoaded = ref({}) // Track which slides have their elements loaded
 const slideWrapperRef = ref(null)
 
-const { scale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
+// Custom scale calculation for play view
+const playScale = computed(() => {
+  const viewportWidth = window.innerWidth
+  const targetWidth = viewportWidth * 0.95 // 95vw
+  return targetWidth / DESIGN_WIDTH
+})
+
+// Keep the original scale for reference but use playScale for display
+const { scale: originalScale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
 
 const currentSlide = computed(() => slides.value[currentSlideIndex.value] || null)
 const isFirstSlide = computed(() => currentSlideIndex.value === 0)
@@ -218,9 +226,9 @@ watch(currentSlide, (newSlide) => {
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          width: 960 + 'px',
-          height: 540 + 'px',
-          transform: `scale(${scale})`,
+          width: DESIGN_WIDTH + 'px',
+          height: DESIGN_HEIGHT + 'px',
+          transform: `scale(${playScale})`,
           transformOrigin: 'center center'
         }"
       >
