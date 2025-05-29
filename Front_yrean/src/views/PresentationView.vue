@@ -10,6 +10,7 @@ import '../assets/styles/empyre-point.css'
 const route = useRoute()
 const presentationId = route.params.id
 const presentationTitle = ref('')
+const presentationDescription = ref('')
 const router = useRouter()
 const hasSlides = ref(false)
 const error = ref('')
@@ -19,11 +20,22 @@ const checkForSlides = async () => {
     const response = await presentationApi.getPresentation(presentationId)
     console.log('response', response)
     if (response.success) {
-      hasSlides.value = response.presentation?.slides?.length > 0
+      if (response.presentation?.slides[0].slide_number) {
+        hasSlides.value = true
+      } else {
+        hasSlides.value = false
+      }
       if (response.presentation?.title) {
         presentationTitle.value = response.presentation.title
       } else {
         presentationTitle.value = 'Presentation ' + presentationId
+      }
+      if (response.presentation?.description) {
+        console.log('response.presentation.description', response.presentation.description)
+        presentationDescription.value = response.presentation.description
+        console.log('presentationDescription', presentationDescription.value)
+      } else {
+        presentationDescription.value = ''
       }
     } else {
       error.value = response.error || 'Failed to load presentation'
@@ -52,24 +64,22 @@ onMounted(checkForSlides)
 
 <template>
   <div class="presentation-container">
-    <div class="presentation-header">
-      <div class="presentation-title" v-if=presentationTitle>{{ presentationTitle }}</div>
-      <div class="presentation-title" v-else>Your Presentation</div>
+    <div class="create-presentation-header">
+      <div class="create-presentation-title" v-if=presentationTitle>{{ presentationTitle }}</div>
+      <div class="create-presentation-title" v-else>Your Presentation</div>
       <div v-if="error" class="error-message">{{ error }}</div>
-
     </div>
     <div class="presentation-actions">
-        <button @click="addSlide">Add Slide</button>
-        <button 
-          v-if="hasSlides" 
-          @click="playPresentation"
-          class="play-button"
-        >
-          Play Presentation
-        </button>
-
-      </div>
-
+      <button @click="addSlide">Add Slide</button>
+      <div v-if=presentationDescription class="presentation-description">{{ presentationDescription }}</div>
+      <button 
+        v-if="hasSlides" 
+        @click="playPresentation"
+        class="play-button"
+      >
+        Play Presentation
+      </button>
+    </div>
     <div class="slides-container">
       <PresentationSlidesView />
     </div>
