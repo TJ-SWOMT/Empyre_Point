@@ -117,6 +117,7 @@ onMounted(fetchSlides)
                role="button"
                tabindex="0"
                @keyup.enter="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)">
+               <div class="slide-title">{{ slide.title }}</div>
             <div class="thumbnail" 
                  :style="{ backgroundColor: slide.background_color }">
               <div v-if="slide.background_image_url" 
@@ -270,7 +271,7 @@ onMounted(fetchSlides)
   background-position: center;
 }
 
-.slide-number {
+.slide-number, .slide-title{
   font-size: 0.875rem;
   color: var(--text-light);
   font-weight: 500;

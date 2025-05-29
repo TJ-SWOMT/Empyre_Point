@@ -13,6 +13,7 @@ const slideId = ref(route.params.slide_id)
 const error = ref('')
 const isSubmitting = ref(false)
 const isEditMode = computed(() => !!slideId.value)
+const slideTitle = ref('')
 
 const headerRef = ref(null)
 const controlsRef = ref(null)
@@ -112,6 +113,7 @@ const loadSlideData = async () => {
                 slide_id: Number(slide.slide_id) // Ensure consistent type
             }
             backgroundColor.value = slide.background_color || '#FFFFFF'
+            slideTitle.value = slide.title || ''
         } else {
             throw new Error('Slide not found')
         }
@@ -149,14 +151,17 @@ const saveSlide = async () => {
                 Number(slideId.value), // Ensure slideId is a number
                 slideData.value.slide_number,
                 backgroundColor.value,
-                slideData.value.background_image_url
+                slideData.value.background_image_url,
+                slideTitle.value
             )
         } else {
             // Create new slide
             response = await presentationApi.createSlide(
                 presentationId,
                 1,  // The backend will handle the slide number
-                backgroundColor.value
+                backgroundColor.value,
+                null, // background_image_url
+                slideTitle.value
             )
         }
         
@@ -886,14 +891,22 @@ watch(scale, (newScale) => {
             
         </div>
         <div class="color-picker">
-                    <label for="backgroundColor">Background Color:</label>
-                    <input 
-                        type="color" 
-                        id="backgroundColor" 
-                        v-model="backgroundColor"
-                        title="Choose slide background color"
-                    />
-                </div>
+            <label for="backgroundColor">Background Color:</label>
+            <input 
+                type="color" 
+                id="backgroundColor" 
+                v-model="backgroundColor"
+                title="Choose slide background color"
+            />
+        </div>
+        <div class="slide-title-container">
+            <label for="slideTitle">Slide Title:</label>
+            <input 
+                type="text" 
+                v-model="slideTitle"
+                placeholder="Slide Title"
+            />
+        </div>
         <div v-if="error" class="error-message">{{ error }}</div>
 
         <div class="center-flex">

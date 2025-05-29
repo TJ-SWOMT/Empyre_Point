@@ -211,7 +211,8 @@ def create_slide(presentation_id):
             presentation_id=presentation_id,
             slide_number=data['slide_number'],
             background_color=data.get('background_color', '#FFFFFF'),
-            background_image_url=data.get('background_image_url')
+            background_image_url=data.get('background_image_url'),
+            title=data.get('title', '')
         )
         
         return jsonify({
@@ -227,14 +228,15 @@ def create_slide(presentation_id):
 def update_slide(slide_id):
     try:
         data = request.get_json()
-        if not data or not any(key in data for key in ['slide_number', 'background_color', 'background_image_url']):
+        if not data or not any(key in data for key in ['slide_number', 'background_color', 'background_image_url', 'title']):
             return jsonify({'error': 'At least one field must be provided for update'}), 400
         
         slide = presentations_service.update_slide(
             slide_id=slide_id,
             slide_number=data.get('slide_number'),
             background_color=data.get('background_color'),
-            background_image_url=data.get('background_image_url')
+            background_image_url=data.get('background_image_url'),
+            title=data.get('title')
         )
         
         if slide:

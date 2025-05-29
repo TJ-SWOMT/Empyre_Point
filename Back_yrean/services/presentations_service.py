@@ -80,6 +80,7 @@ class PresentationsService:
                                    'slide_number', s.slide_number,
                                    'background_color', s.background_color,
                                    'background_image_url', s.background_image_url,
+                                   'title', s.title,
                                    'created_at', s.created_at,
                                    'updated_at', s.updated_at
                                ) ORDER BY s.slide_number) as slides
@@ -206,7 +207,8 @@ class PresentationsService:
 
     def create_slide(self, presentation_id: str, slide_number: int, 
                     background_color: str = '#FFFFFF', 
-                    background_image_url: Optional[str] = None) -> Dict[str, Any]:
+                    background_image_url: Optional[str] = None,
+                    title: str = '') -> Dict[str, Any]:
         """
         Create a new slide in a presentation.
         
@@ -215,6 +217,7 @@ class PresentationsService:
             slide_number: The position of the slide in the presentation
             background_color: The background color of the slide (hex code)
             background_image_url: Optional URL for the slide's background image
+            title: Optional title for the slide
             
         Returns:
             Dict containing the created slide's information
@@ -239,11 +242,11 @@ class PresentationsService:
                     
                     # Insert the new slide with the next available number
                     cur.execute("""
-                        INSERT INTO slides (presentation_id, slide_number, background_color, background_image_url)
-                        VALUES (%s, %s, %s, %s)
+                        INSERT INTO slides (presentation_id, slide_number, background_color, background_image_url, title)
+                        VALUES (%s, %s, %s, %s, %s)
                         RETURNING slide_id, presentation_id, slide_number, background_color, 
-                                background_image_url, created_at, updated_at
-                    """, (presentation_id, next_number, background_color, background_image_url))
+                                background_image_url, title, created_at, updated_at
+                    """, (presentation_id, next_number, background_color, background_image_url, title))
                     
                     slide = cur.fetchone()
                     conn.commit()
@@ -258,7 +261,8 @@ class PresentationsService:
 
     def update_slide(self, slide_id: str, slide_number: Optional[int] = None,
                     background_color: Optional[str] = None,
-                    background_image_url: Optional[str] = None) -> Optional[Dict[str, Any]]:
+                    background_image_url: Optional[str] = None,
+                    title: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Update a slide's properties.
         
@@ -267,12 +271,13 @@ class PresentationsService:
             slide_number: New position in the presentation (optional)
             background_color: New background color (optional)
             background_image_url: New background image URL (optional)
+            title: New title for the slide (optional)
             
         Returns:
             Dict containing updated slide information or None if not found
         """
         try:
-            if not any([slide_number is not None, background_color, background_image_url]):
+            if not any([slide_number is not None, background_color, background_image_url, title is not None]):
                 raise Exception("At least one field must be provided for update")
             
             update_fields = []
@@ -287,6 +292,9 @@ class PresentationsService:
             if background_image_url:
                 update_fields.append("background_image_url = %s")
                 params.append(background_image_url)
+            if title is not None:
+                update_fields.append("title = %s")
+                params.append(title)
             
             update_fields.append("updated_at = NOW()")
             params.append(slide_id)
@@ -329,7 +337,7 @@ class PresentationsService:
                         SET {', '.join(update_fields)}
                         WHERE slide_id = %s
                         RETURNING slide_id, presentation_id, slide_number, background_color, 
-                                background_image_url, created_at, updated_at
+                                background_image_url, title, created_at, updated_at
                     """, params)
                     
                     slide = cur.fetchone()
