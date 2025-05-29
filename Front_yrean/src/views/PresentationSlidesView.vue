@@ -117,7 +117,7 @@ onMounted(fetchSlides)
                role="button"
                tabindex="0"
                @keyup.enter="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)">
-               <div class="slide-title">{{ slide.title }}</div>
+               <div class="slide-title">{{ slide.title ? slide.title : 'Untitled' }}</div>
             <div class="thumbnail" 
                  :style="{ backgroundColor: slide.background_color }">
               <div v-if="slide.background_image_url" 
