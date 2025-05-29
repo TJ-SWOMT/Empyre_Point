@@ -218,13 +218,10 @@ watch(currentSlide, (newSlide) => {
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          width: DESIGN_WIDTH + 'px',
-          height: DESIGN_HEIGHT + 'px',
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: `translate(-50%, -50%) scale(${scale})`,
-          transformOrigin: 'top left'
+          width: 960 + 'px',
+          height: 540 + 'px',
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center'
         }"
       >
         <!-- Background image -->
@@ -341,26 +338,36 @@ watch(currentSlide, (newSlide) => {
 .play-presentation-container {
   position: fixed;
   top: 0;
-  left: 0;
+  /* left: 0; */
   width: 100vw;
   height: 100vh;
-  /* background-color: #000; */
+  background-color: var(--background-color);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: var(--spacing-md);
+  padding: 0;
   box-sizing: border-box;
+  z-index: 9999;
+}
+
+/* Hide all direct children except navigation controls and specific elements */
+.play-presentation-container > *:not(.navigation-controls):not(.error-message):not(.loading):not(.slide-scale-wrapper) {
+  display: none;
 }
 
 .slide-scale-wrapper {
-  display: block;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100vw;
-  height: 80vh;
+  height: 100vh;
   overflow: hidden;
-  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
 }
 
 .slide-display {
@@ -368,11 +375,10 @@ watch(currentSlide, (newSlide) => {
   height: 540px;
   background-color: var(--white);
   box-shadow: var(--shadow-lg);
-  position: absolute;
+  transform: scale(v-bind(scale));
+  transform-origin: center center;
   overflow: hidden;
   border: 1px solid var(--border-color);
-  cursor: pointer;
-  transform-origin: top left;
   box-sizing: border-box;
 }
 
@@ -380,8 +386,8 @@ watch(currentSlide, (newSlide) => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 960px;
-  height: 540px;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
   overflow: visible;
 }
@@ -417,6 +423,9 @@ watch(currentSlide, (newSlide) => {
 }
 
 .background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   background-size: contain;
@@ -435,7 +444,7 @@ watch(currentSlide, (newSlide) => {
   background-color: rgba(0, 0, 0, 0.7);
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--border-radius);
-  z-index: 1000;
+  z-index: 10000; /* Ensure it's above everything */
 }
 
 .nav-button {
@@ -479,18 +488,30 @@ watch(currentSlide, (newSlide) => {
 }
 
 .error-message {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
   color: #dc3545;
   background-color: rgba(255, 255, 255, 0.9);
   padding: 10px 20px;
   border-radius: 4px;
-  margin: 20px;
   text-align: center;
 }
 
 .loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
   color: white;
   font-size: 18px;
   text-align: center;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
 }
 
 .slide-loading {

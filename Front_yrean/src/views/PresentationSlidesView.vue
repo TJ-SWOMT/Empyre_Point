@@ -165,33 +165,28 @@ onMounted(fetchSlides)
 <style scoped>
 .slides-viewport {
   display: flex;
-  /* flex-direction: row; */
-  /* align-items: stretch; */
-  /* justify-content: center; */
-
-  /* height: 100vh; */
-  /* top: calc(var(--header-height) + var(--spacing-md)); */
-  width: 100vw;
+  width: 100%;
   box-sizing: border-box;
-  /* padding-top: var(--header-height); */
   position: relative;
   background: var(--background-color);
   overflow: visible;
+  padding: var(--spacing-md) 0;
 }
 
 .slides-scroll {
   flex: 1;
   display: flex;
   flex-direction: row;
-  /* align-items: center; */
   overflow-x: auto;
   overflow-y: hidden;
-  height: 60vh;
+  height: clamp(300px, 60vh, 600px);
   position: relative;
   scroll-behavior: smooth;
-  /* Hide scrollbar but keep functionality */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  scroll-snap-type: x mandatory; /* Snap to slides */
   scrollbar-width: none;  /* Firefox */
   -ms-overflow-style: none;  /* IE and Edge */
+  padding: var(--spacing-md) 0;
 }
 
 .slides-scroll::-webkit-scrollbar {
@@ -203,9 +198,11 @@ onMounted(fetchSlides)
   flex-direction: row;
   gap: var(--spacing-md, 24px);
   min-width: min-content;
-  margin: 0 48px;
+  margin: 0 var(--spacing-md);
   width: 100%;
   align-items: center;
+  scroll-snap-align: start; /* Snap points for slides */
+  height: 100%;
 }
 
 .slides-center {
@@ -220,17 +217,6 @@ onMounted(fetchSlides)
   justify-content: flex-start;
 }
 
-/* .fade-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  pointer-events: none;
-  z-index: 2;
-  background: linear-gradient(to bottom, var(--background-color) 80%, transparent 100%);
-} */
-
 .slide-thumbnail {
   flex: 0 0 auto;
   display: flex;
@@ -239,12 +225,19 @@ onMounted(fetchSlides)
   gap: var(--spacing-xs);
   cursor: pointer;
   transition: transform 0.2s ease;
-  /* Prevent hover scaling from causing layout shifts */
   transform-origin: center center;
+  scroll-snap-align: center;
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius);
+  background: transparent;
 }
 
 .slide-thumbnail:hover {
   transform: scale(1.5);
+}
+
+.slide-thumbnail:active {
+  transform: scale(0.98);
 }
 
 .slide-thumbnail:focus {
@@ -253,15 +246,16 @@ onMounted(fetchSlides)
 }
 
 .thumbnail {
-  width: calc(2vw*16);
-  height: calc(2vw*9);
+  width: clamp(160px, 40vw, 320px);
+  height: clamp(90px, 22.5vw, 180px);
+  aspect-ratio: 16/9;
   border: 1px solid var(--border-color);
   border-radius: var(--border-radius);
   overflow: hidden;
   background-color: var(--white);
   box-shadow: var(--shadow);
-  /* Prevent thumbnail from shrinking */
   flex-shrink: 0;
+  /* position: relative; */
 }
 
 .background-image {
@@ -271,16 +265,23 @@ onMounted(fetchSlides)
   background-position: center;
 }
 
-.slide-number, .slide-title{
-  font-size: 0.875rem;
+.slide-number, .slide-title {
+  font-size: clamp(0.75rem, 3vw, 0.875rem);
   color: var(--text-light);
   font-weight: 500;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .no-slides {
   text-align: center;
   color: var(--text-light);
   margin: var(--spacing-md) 0;
+  width: 100%;
+  padding: var(--spacing-lg);
 }
 
 .thumbnail-text-elements {
@@ -292,6 +293,7 @@ onMounted(fetchSlides)
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
+  /* background: rgba(255, 255, 255, 0.1); */
 }
 
 .slide-thumbnail:hover .thumbnail-text-elements {
@@ -300,7 +302,7 @@ onMounted(fetchSlides)
 
 .thumbnail-text-element {
   position: absolute;
-  font-size: 0.5em;
+  font-size: clamp(0.5rem, 2vw, 0.75rem);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -309,6 +311,7 @@ onMounted(fetchSlides)
   padding: 2px;
   box-sizing: border-box;
   transform-origin: top left;
+  border-radius: 2px;
 }
 
 .thumbnail-image-block {
@@ -319,13 +322,84 @@ onMounted(fetchSlides)
   align-items: center;
   justify-content: center;
   transform-origin: top left;
+  border-radius: 2px;
 }
 
 .image-dimensions {
-  font-size: 0.4em;
+  font-size: clamp(0.4rem, 1.5vw, 0.6rem);
   color: #666;
   background: rgba(255, 255, 255, 0.9);
   padding: 1px 3px;
   border-radius: 2px;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 900px) {
+  .slides-scroll {
+    height: clamp(250px, 50vh, 500px);
+    padding: var(--spacing-sm) 0;
+  }
+
+  .slides-grid {
+    gap: var(--spacing-sm);
+    margin: 0 var(--spacing-sm);
+  }
+
+  .thumbnail {
+    width: clamp(140px, 35vw, 280px);
+    height: clamp(78.75px, 19.7vw, 157.5px);
+  }
+}
+
+@media (max-width: 600px) {
+  .slides-scroll {
+    height: clamp(200px, 40vh, 400px);
+    padding: var(--spacing-xs) 0;
+  }
+
+  .slides-grid {
+    gap: var(--spacing-xs);
+    margin: 0 var(--spacing-xs);
+  }
+
+  .thumbnail {
+    width: clamp(120px, 30vw, 240px);
+    height: clamp(67.5px, 16.9vw, 135px);
+  }
+
+  .slide-thumbnail {
+    padding: var(--spacing-xs) 0;
+  }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .slide-thumbnail:hover {
+    transform: none;
+  }
+
+  .slide-thumbnail:hover .thumbnail-text-elements {
+    opacity: 0.5;
+  }
+
+  .slide-thumbnail:active {
+    transform: scale(0.95);
+  }
+
+  .slide-thumbnail:active .thumbnail-text-elements {
+    opacity: 0.7;
+  }
+}
+
+/* Landscape Mode Optimizations */
+@media (max-height: 600px) and (orientation: landscape) {
+  .slides-scroll {
+    height: clamp(180px, 35vh, 360px);
+  }
+
+  .thumbnail {
+    width: clamp(100px, 25vw, 200px);
+    height: clamp(56.25px, 14.1vw, 112.5px);
+  }
 }
 </style>

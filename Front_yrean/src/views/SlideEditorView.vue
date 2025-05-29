@@ -887,10 +887,7 @@ watch(scale, (newScale) => {
                 </button>
                 <button @click="addImage">Add Image</button>
                 <button @click="deleteSlide">Delete Slide</button>
-            </div>
-            
-        </div>
-        <div class="color-picker">
+                <div class="color-picker">
             <label for="backgroundColor">Background Color:</label>
             <input 
                 type="color" 
@@ -907,6 +904,10 @@ watch(scale, (newScale) => {
                 placeholder="Slide Title"
             />
         </div>
+            </div>
+            
+        </div>
+       
         <div v-if="error" class="error-message">{{ error }}</div>
 
         <div class="center-flex">
@@ -1156,18 +1157,13 @@ watch(scale, (newScale) => {
 
 <style scoped>
 .editor-root {
-  position: fixed;
-  top: var(--header-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
-  /* height: calc(100vh - var(--header-height)); */
   display: flex;
   flex-direction: column;
-  align-items: center;
+  min-height: 100vh;
+  width: 100vw;
   background-color: var(--background-color);
   overflow: hidden;
-  z-index: 1;
+  padding-top: var(--header-height);
 }
 
 .center-flex {

@@ -73,20 +73,26 @@ onMounted(checkForSlides)
   </div>
 </template>
 <style scoped>
-.presentation-header {
-  /* margin-top: 100px; */
-  right: 0;
-  top: calc(var(--header-height) - 10px);
-  position: fixed;
-  color: white;
-  background-color: var(--white);
-  width: 100%;
-  height: 100px;
-  display: flex; /* Make the container a flex container */
-  align-items: center; /* Vertically center content along the cross-axis */
-  justify-content: center;
-  box-shadow: inset 10px 10px 100px rgba(53, 89, 126, 1);
+.presentation-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100vw;
+  background-color: var(--background-color);
+  overflow: hidden;
+}
 
+.presentation-header {
+  flex: 0 0 auto;
+  width: 100%;
+  background-color: var(--white);
+  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-md) 0 var(--spacing-xs) 0;
 }
 
 .presentation-title {
@@ -97,5 +103,58 @@ onMounted(checkForSlides)
   border-radius: var(--border-radius);
   font-size: 2rem;
   font-weight: bold;
+  margin-bottom: var(--spacing-xs);
+}
+
+.presentation-actions {
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  background-color: var(--background-color);
+  box-sizing: border-box;
+  padding: var(--spacing-md) 0;
+  z-index: 10;
+}
+
+.slides-container {
+  flex: 1 1 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .presentation-header {
+    padding: var(--spacing-sm) 0 var(--spacing-xs) 0;
+  }
+  .presentation-title {
+    font-size: 1.5rem;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  .presentation-actions {
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .presentation-header {
+    padding: var(--spacing-xs) 0;
+  }
+  .presentation-title {
+    font-size: 1.1rem;
+    padding: var(--spacing-xs) var(--spacing-xs);
+  }
+  .presentation-actions {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) 0;
+  }
 }
 </style>
