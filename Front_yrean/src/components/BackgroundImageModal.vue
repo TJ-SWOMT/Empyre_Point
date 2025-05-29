@@ -123,7 +123,9 @@ watch(() => props.currentImage, (newImage) => {
 
         <!-- Upload Section - Only show when no image exists -->
         <div v-if="!isEditMode" class="upload-section">
+ 
           <label class="upload-button">
+            
             <input
               type="file"
               accept="image/*"

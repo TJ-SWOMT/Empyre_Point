@@ -87,12 +87,14 @@ body {
 
 /* Typography */
 h1 {
+  color: var(--text-color);
   font-size: clamp(1.25rem, 5vw, 1.5rem);
   line-height: 1.1;
   margin: 0;
 }
 
 h2 {
+  color: var(--text-color);
   font-size: clamp(1.1rem, 4vw, 1.25rem);
   margin: var(--spacing-md) 0;
 }
@@ -265,7 +267,7 @@ input[type="color"] {
 
 }
 
-.slide-actions, .presentation-actions , .presentation-actions {
+.slide-actions, .presentation-actions{
   position: fixed;
   left: 0;
   right: 0;
