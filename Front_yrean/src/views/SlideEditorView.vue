@@ -235,97 +235,101 @@ const addImage = async () => {
             const file = event.target.files[0]
             if (!file) return
             
-            // Create a temporary image to get dimensions
-            const img = new Image()
-            const imgUrl = URL.createObjectURL(file)
-            
-            // Wait for image to load to get dimensions
-            await new Promise((resolve, reject) => {
-                img.onload = resolve
-                img.onerror = reject
-                img.src = imgUrl
-            })
-            
-            // Calculate dimensions to fit within slide while maintaining aspect ratio
-            const slideAspectRatio = DESIGN_WIDTH / DESIGN_HEIGHT
-            const imageAspectRatio = img.width / img.height
-            
-            let finalWidth, finalHeight
-            
-            if (imageAspectRatio > slideAspectRatio) {
-                // Image is wider than slide aspect ratio, fit to width
-                finalWidth = DESIGN_WIDTH * 0.9 // 90% of slide width
-                finalHeight = finalWidth / imageAspectRatio
-            } else {
-                // Image is taller than slide aspect ratio, fit to height
-                finalHeight = DESIGN_HEIGHT * 0.9 // 90% of slide height
-                finalWidth = finalHeight * imageAspectRatio
-            }
-            
-            // Round dimensions to integers
-            finalWidth = Math.round(finalWidth)
-            finalHeight = Math.round(finalHeight)
-            
-            // Upload the image
-            const uploadResponse = await presentationApi.uploadImage(file)
-            if (uploadResponse.error) {
-                error.value = uploadResponse.error
-                URL.revokeObjectURL(imgUrl)
-                return
-            }
-            
-            // For new slides, we need to save the slide first
-            if (!isEditMode.value) {
-                const response = await saveSlide()
-                if (!response) {
-                    throw new Error('Failed to create slide')
+            let imgUrl = null
+            try {
+                // Create a temporary image to get dimensions
+                const img = new Image()
+                imgUrl = URL.createObjectURL(file)
+                
+                // Wait for image to load to get dimensions
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve
+                    img.onerror = reject
+                    img.src = imgUrl
+                })
+                
+                // Calculate dimensions to fit within slide while maintaining aspect ratio
+                const slideAspectRatio = DESIGN_WIDTH / DESIGN_HEIGHT
+                const imageAspectRatio = img.width / img.height
+                
+                let finalWidth, finalHeight
+                
+                if (imageAspectRatio > slideAspectRatio) {
+                    // Image is wider than slide aspect ratio, fit to width
+                    finalWidth = DESIGN_WIDTH * 0.9 // 90% of slide width
+                    finalHeight = finalWidth / imageAspectRatio
+                } else {
+                    // Image is taller than slide aspect ratio, fit to height
+                    finalHeight = DESIGN_HEIGHT * 0.9 // 90% of slide height
+                    finalWidth = finalHeight * imageAspectRatio
                 }
-                // Update the slideId from the response
-                slideId.value = response.slide.slide_id
-            }
-            
-            // Calculate position to center the image
-            const xPos = Math.round((DESIGN_WIDTH - finalWidth) / 2)
-            const yPos = Math.round((DESIGN_HEIGHT - finalHeight) / 2)
-            
-            const elementData = {
-                image_url: uploadResponse.image_url,
-                x_position: xPos,
-                y_position: yPos,
-                width: finalWidth,
-                height: finalHeight,
-                z_index: elements.value.length || 0
-            }
-            
-            const response = await presentationApi.createImageElement(slideId.value, elementData)
-            if (response.error) {
-                error.value = response.error
-                URL.revokeObjectURL(imgUrl)
-                return
-            }
-            
-            // Add the new element to the elements array
-            elements.value.push({
-                element_id: response.element.element_id,
-                element_type: 'image',
-                x_position: xPos,
-                y_position: yPos,
-                width: finalWidth,
-                height: finalHeight,
-                z_index: elements.value.length || 0,
-                element_data: {
+                
+                // Round dimensions to integers
+                finalWidth = Math.round(finalWidth)
+                finalHeight = Math.round(finalHeight)
+                
+                // Upload the image
+                const uploadResponse = await presentationApi.uploadImage(file)
+                if (uploadResponse.error) {
+                    throw new Error(uploadResponse.error)
+                }
+                
+                // For new slides, we need to save the slide first
+                if (!isEditMode.value) {
+                    const response = await saveSlide()
+                    if (!response) {
+                        throw new Error('Failed to create slide')
+                    }
+                    // Update the slideId from the response
+                    slideId.value = response.slide.slide_id
+                }
+                
+                // Calculate position to center the image
+                const xPos = Math.round((DESIGN_WIDTH - finalWidth) / 2)
+                const yPos = Math.round((DESIGN_HEIGHT - finalHeight) / 2)
+                
+                const elementData = {
                     image_url: uploadResponse.image_url,
-                    alt_text: '',
-                    natural_width: img.width,
-                    natural_height: img.height
+                    x_position: xPos,
+                    y_position: yPos,
+                    width: finalWidth,
+                    height: finalHeight,
+                    z_index: elements.value.length || 0
                 }
-            })
-            
-            // Clean up
-            URL.revokeObjectURL(imgUrl)
-            
-            // Select the new element
-            selectedElement.value = elements.value[elements.value.length - 1]
+                
+                const response = await presentationApi.createImageElement(slideId.value, elementData)
+                if (response.error) {
+                    throw new Error(response.error)
+                }
+                
+                // Add the new element to the elements array
+                elements.value.push({
+                    element_id: response.element.element_id,
+                    element_type: 'image',
+                    x_position: xPos,
+                    y_position: yPos,
+                    width: finalWidth,
+                    height: finalHeight,
+                    z_index: elements.value.length || 0,
+                    element_data: {
+                        image_url: uploadResponse.image_url,
+                        alt_text: '',
+                        natural_width: img.width,
+                        natural_height: img.height
+                    }
+                })
+                
+                // Select the new element
+                selectedElement.value = elements.value[elements.value.length - 1]
+            } catch (err) {
+                error.value = handleApiError(err)
+                console.error('Error in image upload handler:', err)
+            } finally {
+                // Clean up
+                if (imgUrl) {
+                    URL.revokeObjectURL(imgUrl)
+                }
+            }
         }
         
         // Trigger file selection
@@ -789,17 +793,31 @@ const handleSlideClick = (event) => {
 };
 
 function updateAvailableHeight() {
+    // Use nextTick to ensure DOM is updated
     nextTick(() => {
         const headerH = headerRef.value?.getBoundingClientRect().height || 0
         const controlsH = controlsRef.value?.getBoundingClientRect().height || 0
         const actionsH = actionButtonsRef.value?.getBoundingClientRect().height || 0
         const margin = 16 // reduced for tighter fit
-        availableHeight.value = window.innerHeight - (headerH + controlsH + actionsH + margin)
-        calculateScale()
+        const newHeight = window.innerHeight - (headerH + controlsH + actionsH + margin)
+        
+        // Only update if we have a valid height
+        if (newHeight > 0) {
+            availableHeight.value = newHeight
+            calculateScale()
+        } else {
+            console.warn('Invalid height calculated:', newHeight)
+            // Use a fallback height if calculation fails
+            availableHeight.value = 600
+            calculateScale()
+        }
     })
 }
 
 onMounted(async () => {
+    // Wait for next tick to ensure refs are available
+    await nextTick()
+    
     if (isEditMode.value) {
         await loadSlideData()
         await loadSlideElements()
@@ -822,8 +840,12 @@ onMounted(async () => {
         box.value.addEventListener("mouseleave", updateDisplay)
     }
 
-    document.addEventListener('mousedown', handleClickAway);
+    document.addEventListener('mousedown', handleClickAway)
+    
+    // Initial height calculation
     updateAvailableHeight()
+    
+    // Add resize listener
     window.addEventListener('resize', updateAvailableHeight)
 })
 

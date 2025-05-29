@@ -11,6 +11,7 @@ const slides = ref([])
 const error = ref('')
 const isLoading = ref(true)
 const slidesGrid = ref(null)
+const slideElements = ref({})
 
 const slidesGridClass = computed(() => {
   if (!slides.value || slides.value.length === 0) return ''
@@ -30,6 +31,29 @@ const slidesGridClass = computed(() => {
   return 'slides-scrollable'
 })
 
+const fetchSlideElements = async (slideId) => {
+  try {
+    const response = await presentationApi.getSlideElements(slideId)
+    if (response.success && response.elements) {
+      // Store both text and image elements
+      slideElements.value[slideId] = response.elements
+        .filter(element => element.element_type === 'text' || element.element_type === 'image')
+        .map(element => ({
+          element_id: element.element_id,
+          element_type: element.element_type,
+          x_position: parseFloat(element.x_position),
+          y_position: parseFloat(element.y_position),
+          width: parseFloat(element.width),
+          height: parseFloat(element.height),
+          z_index: element.z_index || 0,
+          content: element.element_type === 'text' ? element.element_data?.content || '' : null
+        }))
+    }
+  } catch (err) {
+    console.error('Error fetching slide elements:', err)
+  }
+}
+
 const fetchSlides = async () => {
   try {
     isLoading.value = true
@@ -44,10 +68,6 @@ const fetchSlides = async () => {
       throw new Error('Failed to fetch presentation')
     }
     
-    // Log the raw slides data
-    // console.log('Raw slides data:', JSON.stringify(response.presentation.slides, null, 2))
-    
-    // More explicit handling of the slides data
     let presentationSlides = response.presentation.slides
     if (!presentationSlides || !Array.isArray(presentationSlides)) {
       console.log('No slides array found, setting to empty array')
@@ -56,15 +76,16 @@ const fetchSlides = async () => {
       console.log('Found [null] slides array, setting to empty array')
       slides.value = []
     } else {
-      // Filter out any invalid slides and ensure background color is set
       const validSlides = presentationSlides
         .filter(slide => slide && typeof slide === 'object' && slide.slide_id && slide.slide_number)
         .map(slide => ({
           ...slide,
-          background_color: slide.background_color || '#FFFFFF' // Ensure background color is set
+          background_color: slide.background_color || '#FFFFFF'
         }))
-      console.log('Filtered valid slides with background colors:', JSON.stringify(validSlides, null, 2))
       slides.value = validSlides
+      
+      // Fetch elements for all slides
+      await Promise.all(slides.value.map(slide => fetchSlideElements(slide.slide_id)))
     }
     
     console.log('Final slides value:', JSON.stringify(slides.value, null, 2))
@@ -101,6 +122,35 @@ onMounted(fetchSlides)
               <div v-if="slide.background_image_url" 
                    class="background-image"
                    :style="{ backgroundImage: `url(${slide.background_image_url})` }">
+              </div>
+              <!-- Only show text elements on hover -->
+              <div class="thumbnail-text-elements">
+                <template v-for="element in slideElements[slide.slide_id]" :key="element.element_id">
+                  <!-- Text elements -->
+                  <div v-if="element.element_type === 'text'"
+                       class="thumbnail-text-element"
+                       :style="{
+                         left: `${(element.x_position / 960) * 100}%`,
+                         top: `${(element.y_position / 540) * 100}%`,
+                         width: `${(element.width / 960) * 100}%`,
+                         height: `${(element.height / 540) * 100}%`,
+                         zIndex: element.z_index
+                       }">
+                    {{ element.content }}
+                  </div>
+                  <!-- Image elements -->
+                  <div v-else-if="element.element_type === 'image'"
+                       class="thumbnail-image-block"
+                       :style="{
+                         left: `${(element.x_position / 960) * 100}%`,
+                         top: `${(element.y_position / 540) * 100}%`,
+                         width: `${(element.width / 960) * 100}%`,
+                         height: `${(element.height / 540) * 100}%`,
+                         zIndex: element.z_index
+                       }">
+                    <div class="image-dimensions">{{ Math.round(element.width) }}×{{ Math.round(element.height) }}</div>
+                  </div>
+                </template>
               </div>
             </div>
             <div class="slide-number">Slide {{ slide.slide_number }}</div>
@@ -230,5 +280,51 @@ onMounted(fetchSlides)
   text-align: center;
   color: var(--text-light);
   margin: var(--spacing-md) 0;
+}
+
+.thumbnail-text-elements {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.slide-thumbnail:hover .thumbnail-text-elements {
+  opacity: 1;
+}
+
+.thumbnail-text-element {
+  position: absolute;
+  font-size: 0.5em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #000;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px;
+  box-sizing: border-box;
+  transform-origin: top left;
+}
+
+.thumbnail-image-block {
+  position: absolute;
+  border: 1px dashed #666;
+  background: rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: top left;
+}
+
+.image-dimensions {
+  font-size: 0.4em;
+  color: #666;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1px 3px;
+  border-radius: 2px;
 }
 </style>

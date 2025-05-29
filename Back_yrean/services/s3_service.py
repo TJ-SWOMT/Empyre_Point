@@ -41,8 +41,7 @@ class S3Service:
                 Bucket=self.bucket_name,
                 Key=key,
                 Body=file_data,
-                ContentType=content_type,
-                ACL='public-read'
+                ContentType=content_type
             )
             
             # Generate the URL
