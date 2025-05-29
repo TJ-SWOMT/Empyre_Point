@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-import '../assets/styles/main.css'
+import '../assets/styles/empyre-point.css'
 
 const router = useRouter()
 const title = ref('')
@@ -85,62 +85,3 @@ const createPresentation = async () => {
         </div>
     </div>
 </template>
-
-<style scoped>
-/* Only keep component-specific styles that aren't in main.css */
-.create-presentation-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: var(--spacing-md);
-}
-
-.presentation-form {
-    /* width: 100%; */
-    width: 55vw;
-    padding: var(--spacing-lg);
-    background-color: var(--white);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-}
-
-textarea {
-    resize: vertical;
-    min-height: 20vh;
-}
-
-.create-presentation-header {
-  /* margin-top: 100px; */
-  right: 0;
-  top: calc(var(--header-height) - 10px);
-  position: fixed;
-  color: white;
-  background-color: var(--white);
-  width: 100%;
-  height: 100px;
-  display: flex; /* Make the container a flex container */
-  align-items: center; /* Vertically center content along the cross-axis */
-  justify-content: center;
-  box-shadow: inset 10px 10px 100px rgba(53, 89, 126, 1);
-
-}
-
-.create-presentation-title {
-  background-color: var(--primary-color);
-  color: var(--white);
-  border: var(--button-border);
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--border-radius);
-  font-size: 2rem;
-  font-weight: bold;
-}
-
-.char-count {
-  font-size: 0.9rem;
-  color: var(--text-light);
-  text-align: right;
-  margin-top: 2px;
-}
-</style>

@@ -2,7 +2,7 @@
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import logo from '../assets/Empyre_Point_Logo.png'
-import './assets/styles/main.css'
+import './assets/styles/empyre-point.css'
 const router = useRouter()
 const toPresentations = () => {
   router.push('/presentations')
@@ -36,6 +36,7 @@ checkLoginStatus()
 </script>
 
 <template>
+  
   <div v-if="isLoggedIn" class="header">
     <img :src="logo" alt="Logo" class="logo_small">
     <div class="header_buttons">  
@@ -44,10 +45,9 @@ checkLoginStatus()
       <button @click="logOut" class="header_button">Log Out</button>
     </div>
   </div>
-  <router-view></router-view>
+  <div class="app-container">
+    <router-view></router-view>
+  </div>
 </template>
 
-<style scoped>
-/* All styles moved to main.css */
-</style>
 

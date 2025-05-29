@@ -2,7 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-import '../assets/styles/main.css'
+import '../assets/styles/empyre-point.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +11,7 @@ const slides = ref([])
 const error = ref('')
 const isLoading = ref(true)
 const slidesGrid = ref(null)
+const slideElements = ref({})
 
 const slidesGridClass = computed(() => {
   if (!slides.value || slides.value.length === 0) return ''
@@ -30,6 +31,29 @@ const slidesGridClass = computed(() => {
   return 'slides-scrollable'
 })
 
+const fetchSlideElements = async (slideId) => {
+  try {
+    const response = await presentationApi.getSlideElements(slideId)
+    if (response.success && response.elements) {
+      // Store both text and image elements
+      slideElements.value[slideId] = response.elements
+        .filter(element => element.element_type === 'text' || element.element_type === 'image')
+        .map(element => ({
+          element_id: element.element_id,
+          element_type: element.element_type,
+          x_position: parseFloat(element.x_position),
+          y_position: parseFloat(element.y_position),
+          width: parseFloat(element.width),
+          height: parseFloat(element.height),
+          z_index: element.z_index || 0,
+          content: element.element_type === 'text' ? element.element_data?.content || '' : null
+        }))
+    }
+  } catch (err) {
+    console.error('Error fetching slide elements:', err)
+  }
+}
+
 const fetchSlides = async () => {
   try {
     isLoading.value = true
@@ -44,10 +68,6 @@ const fetchSlides = async () => {
       throw new Error('Failed to fetch presentation')
     }
     
-    // Log the raw slides data
-    // console.log('Raw slides data:', JSON.stringify(response.presentation.slides, null, 2))
-    
-    // More explicit handling of the slides data
     let presentationSlides = response.presentation.slides
     if (!presentationSlides || !Array.isArray(presentationSlides)) {
       console.log('No slides array found, setting to empty array')
@@ -56,15 +76,16 @@ const fetchSlides = async () => {
       console.log('Found [null] slides array, setting to empty array')
       slides.value = []
     } else {
-      // Filter out any invalid slides and ensure background color is set
       const validSlides = presentationSlides
         .filter(slide => slide && typeof slide === 'object' && slide.slide_id && slide.slide_number)
         .map(slide => ({
           ...slide,
-          background_color: slide.background_color || '#FFFFFF' // Ensure background color is set
+          background_color: slide.background_color || '#FFFFFF'
         }))
-      console.log('Filtered valid slides with background colors:', JSON.stringify(validSlides, null, 2))
       slides.value = validSlides
+      
+      // Fetch elements for all slides
+      await Promise.all(slides.value.map(slide => fetchSlideElements(slide.slide_id)))
     }
     
     console.log('Final slides value:', JSON.stringify(slides.value, null, 2))
@@ -81,7 +102,6 @@ onMounted(fetchSlides)
 
 <template>
   <div class="slides-viewport">
-
     <div class="slides-scroll">
       <div v-if="error" class="error-message">{{ error }}</div>
       <div v-if="isLoading" class="loading">Loading slides...</div>
@@ -96,11 +116,41 @@ onMounted(fetchSlides)
                role="button"
                tabindex="0"
                @keyup.enter="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)">
+               <div class="slide-title">{{ slide.title ? slide.title : 'Untitled' }}</div>
             <div class="thumbnail" 
                  :style="{ backgroundColor: slide.background_color }">
               <div v-if="slide.background_image_url" 
                    class="background-image"
                    :style="{ backgroundImage: `url(${slide.background_image_url})` }">
+              </div>
+              <!-- Only show text elements on hover -->
+              <div class="thumbnail-text-elements">
+                <template v-for="element in slideElements[slide.slide_id]" :key="element.element_id">
+                  <!-- Text elements -->
+                  <div v-if="element.element_type === 'text'"
+                       class="thumbnail-text-element"
+                       :style="{
+                         left: `${(element.x_position / 960) * 100}%`,
+                         top: `${(element.y_position / 540) * 100}%`,
+                         width: `${(element.width / 960) * 100}%`,
+                         height: `${(element.height / 540) * 100}%`,
+                         zIndex: element.z_index
+                       }">
+                    {{ element.content }}
+                  </div>
+                  <!-- Image elements -->
+                  <div v-else-if="element.element_type === 'image'"
+                       class="thumbnail-image-block"
+                       :style="{
+                         left: `${(element.x_position / 960) * 100}%`,
+                         top: `${(element.y_position / 540) * 100}%`,
+                         width: `${(element.width / 960) * 100}%`,
+                         height: `${(element.height / 540) * 100}%`,
+                         zIndex: element.z_index
+                       }">
+                    <div class="image-dimensions">{{ Math.round(element.width) }}×{{ Math.round(element.height) }}</div>
+                  </div>
+                </template>
               </div>
             </div>
             <div class="slide-number">Slide {{ slide.slide_number }}</div>
@@ -110,125 +160,3 @@ onMounted(fetchSlides)
     </div>
   </div>
 </template>
-
-<style scoped>
-.slides-viewport {
-  display: flex;
-  /* flex-direction: row; */
-  /* align-items: stretch; */
-  /* justify-content: center; */
-
-  /* height: 100vh; */
-  /* top: calc(var(--header-height) + var(--spacing-md)); */
-  width: 100vw;
-  box-sizing: border-box;
-  /* padding-top: var(--header-height); */
-  position: relative;
-  background: var(--background-color);
-  overflow: visible;
-}
-
-.slides-scroll {
-  flex: 1;
-  display: flex;
-  flex-direction: row;
-  /* align-items: center; */
-  overflow-x: auto;
-  overflow-y: hidden;
-  height: 60vh;
-  position: relative;
-  scroll-behavior: smooth;
-  /* Hide scrollbar but keep functionality */
-  scrollbar-width: none;  /* Firefox */
-  -ms-overflow-style: none;  /* IE and Edge */
-}
-
-.slides-scroll::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari, Opera */
-}
-
-.slides-grid {
-  display: flex;
-  flex-direction: row;
-  gap: var(--spacing-md, 24px);
-  min-width: min-content;
-  margin: 0 48px;
-  width: 100%;
-  align-items: center;
-}
-
-.slides-center {
-  justify-content: center;
-}
-
-.slides-between {
-  justify-content: space-between;
-}
-
-.slides-scrollable {
-  justify-content: flex-start;
-}
-
-/* .fade-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  pointer-events: none;
-  z-index: 2;
-  background: linear-gradient(to bottom, var(--background-color) 80%, transparent 100%);
-} */
-
-.slide-thumbnail {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-xs);
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  /* Prevent hover scaling from causing layout shifts */
-  transform-origin: center center;
-}
-
-.slide-thumbnail:hover {
-  transform: scale(1.5);
-}
-
-.slide-thumbnail:focus {
-  outline: 2px solid var(--secondary-color);
-  outline-offset: 2px;
-}
-
-.thumbnail {
-  width: calc(2vw*16);
-  height: calc(2vw*9);
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  background-color: var(--white);
-  box-shadow: var(--shadow);
-  /* Prevent thumbnail from shrinking */
-  flex-shrink: 0;
-}
-
-.background-image {
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-}
-
-.slide-number {
-  font-size: 0.875rem;
-  color: var(--text-light);
-  font-weight: 500;
-}
-
-.no-slides {
-  text-align: center;
-  color: var(--text-light);
-  margin: var(--spacing-md) 0;
-}
-</style>

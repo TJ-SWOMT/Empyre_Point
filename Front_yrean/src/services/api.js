@@ -107,30 +107,26 @@ export const presentationApi = {
   },
 
   // Slide endpoints
-  async createSlide(presentation_id, slide_number, background_color = '#FFFFFF', background_image_url = null) {
+  async createSlide(presentation_id, slide_number, background_color = '#FFFFFF', background_image_url = null, title = '') {
     const response = await fetch(`${API_BASE_URL}/presentations/${presentation_id}/slides`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ slide_number, background_color, background_image_url, presentation_id })
+      body: JSON.stringify({ slide_number, background_color, background_image_url, title })
     })
     return response.json()
   },
 
-  async updateSlide(slide_id, slide_number, background_color, background_image_url) {
+  async updateSlide(slide_id, slide_number, background_color, background_image_url, title) {
     const response = await fetch(`${API_BASE_URL}/slides/${slide_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ 
-        slide_number: Number(slide_number), 
-        background_color, 
-        background_image_url 
-      })
+      body: JSON.stringify({ slide_number, background_color, background_image_url, title })
     })
     return response.json()
   },

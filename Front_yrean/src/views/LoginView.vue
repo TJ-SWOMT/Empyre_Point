@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi, handleApiError } from '../services/api'
 import logo from '../../assets/Empyre_Point_Logo.png'
-import '../assets/styles/main.css'
+import '../assets/styles/empyre-point.css'
 const router = useRouter()
 const loginError = ref('')
 const isSubmitting = ref(false)
@@ -57,37 +57,3 @@ const onSubmit = async (e) => {
     </form>
   </div>
 </template>
-
-<style scoped>
-/* Only keep component-specific styles that aren't in main.css */
-.login-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: var(--spacing-md);
-}
-
-.login-form {
-  width: 100%;
-  max-width: 400px;
-  padding: var(--spacing-lg);
-  background-color: var(--white);
-  border-radius: var(--border-radius);
-  box-shadow: var(--shadow);
-}
-
-.logo {
-  display: block;
-  margin: 0 auto var(--spacing-lg) auto;
-  width: 30vw;
-  max-width: 300px;
-  height: auto;
-}
-
-.register-link {
-  margin-top: var(--spacing-md);
-  text-align: center;
-}
-</style>

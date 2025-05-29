@@ -4,16 +4,15 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 const DESIGN_WIDTH = 960
 const DESIGN_HEIGHT = 540
 
-export function useSlideScale(extraVerticalSpace = 240) { // default: header+controls+buttons
+export function useSlideScale(availableHeightRef, availableWidthRef) {
   const scale = ref(1)
 
   function calculateScale() {
-    const margin = 40
-    const maxW = window.innerWidth - margin * 2
-    const maxH = window.innerHeight - extraVerticalSpace
-    const scaleW = maxW / DESIGN_WIDTH
-    const scaleH = maxH / DESIGN_HEIGHT
-    scale.value = Math.min(scaleW, scaleH, 1) // never upscale above 1
+    const width = availableWidthRef?.value || window.innerWidth
+    const height = availableHeightRef?.value || window.innerHeight
+    const scaleW = width / DESIGN_WIDTH
+    const scaleH = height / DESIGN_HEIGHT
+    scale.value = Math.min(scaleW, scaleH, 1) // Never scale up beyond 1
   }
 
   onMounted(() => {
