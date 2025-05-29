@@ -265,7 +265,7 @@ input[type="color"] {
 
 }
 
-.presentation-actions {
+.presentation-actions, .slide-actions {
   position: fixed;
   top: calc(var(--header-height) + var(--presentation-header-height));
   left: 0;
@@ -279,6 +279,11 @@ input[type="color"] {
   background-color: var(--background-color);
   box-sizing: border-box;
   padding: var(--spacing-md);
+}
+
+.slide-actions {
+  top: calc(var(--header-height) + var(--presentation-header-height));
+  flex-direction: column;
 }
 
 .presentation-actions button {
@@ -780,6 +785,14 @@ textarea {
   font-size: 0.875rem;
   min-width: 100px;
   text-align: center;
+}
+
+.slide-controls-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 /* Presentation Slides Styles */
@@ -1409,5 +1422,67 @@ textarea {
     flex-direction: column;
     gap: 10px;
     margin-top: 4px;
+  }
+}
+
+/* Slide Editor Controls */
+.slide-editor-controls-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+/* .slide-background-edit-actions, */
+.slide-title-container {
+  margin-top: 0;
+  margin-bottom: 0;
+  width: auto;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.color-picker,
+.slide-title-container {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.color-picker label,
+.slide-title-container label {
+  color: var(--white);
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  white-space: nowrap;
+}
+
+.slide-title-container input {
+  width: 300px;
+  max-width: 100%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+@media (max-width: 600px) {
+  .slide-editor-controls-group {
+    gap: 8px;
+  }
+  .color-picker,
+  .slide-title-container {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  .slide-title-container input {
+    width: 250px;
   }
 } 

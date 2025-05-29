@@ -25,7 +25,7 @@ const availableHeight = ref(600) // fallback default
 const centerFlexRef = ref(null)
 const availableWidth = ref(window.innerWidth)
 
-function updateAvailableWidth() {
+function updateAvailableWidth () {
   nextTick(() => {
     if (centerFlexRef.value) {
       availableWidth.value = centerFlexRef.value.offsetWidth
@@ -35,8 +35,10 @@ function updateAvailableWidth() {
   })
 }
 
-const { scale, DESIGN_WIDTH, DESIGN_HEIGHT, calculateScale } =
-  useSlideScale(availableHeight, availableWidth)
+const { scale, DESIGN_WIDTH, DESIGN_HEIGHT, calculateScale } = useSlideScale(
+  availableHeight,
+  availableWidth
+)
 
 // Initialize background color from session storage, but use presentation-specific key
 const getStoredBackgroundColor = () => {
@@ -214,6 +216,7 @@ const saveSlide = async () => {
       router.replace(
         `/presentations/${presentationId}/slides/${response.slide.slide_id}`
       )
+      router.push(`/presentations/${presentationId}`)
     } else {
       // Redirect back to the presentation view
       router.push(`/presentations/${presentationId}`)
@@ -241,23 +244,23 @@ const deleteText = id => {
   texts.value = texts.value.filter(text => text.id !== id)
 }
 
-const deleteSlide = async (event) => {
+const deleteSlide = async event => {
   if (event) {
     event.preventDefault()
     event.stopPropagation()
   }
-  
+
   if (!slideSureness.value) {
     slideSureness.value = true
     return
   }
-  
+
   try {
     await presentationApi.deleteSlide(slideId.value)
     router.push(`/presentations/${presentationId}`)
   } catch (err) {
     error.value = handleApiError(err)
-    slideSureness.value = false  // Reset on error
+    slideSureness.value = false // Reset on error
   }
 }
 
@@ -985,8 +988,10 @@ watch(
         {{ isEditMode ? 'Edit Slide' : 'Create Slide' }}
       </div>
     </div>
-    <div class="presentation-actions" ref="headerRef">
-      <!-- <div class="controls" ref="controlsRef"> -->
+
+    <div class="slide-actions" ref="headerRef">
+      <div class="slide-controls-container">
+        <!-- <div class="controls" ref="controlsRef"> -->
         <button
           @click="addText"
           :class="{ active: isAddingText }"
@@ -996,26 +1001,29 @@ watch(
         </button>
         <button @click="addImage">Add Image</button>
 
-        <div class="color-picker">
-          <label for="backgroundColor">Background Color:</label>
-          <input
-            type="color"
-            id="backgroundColor"
-            v-model="backgroundColor"
-            title="Choose slide background color"
-          />
-        </div>
-        <div class="slide-title-container">
-          <label for="slideTitle">Slide Title:</label>
-          <input type="text" v-model="slideTitle" placeholder="Slide Title" />
-        </div>
-                <button 
+        <button
           @click.stop="deleteSlide($event)"
           class="btn btn-danger delete-slide-button"
         >
           {{ !slideSureness ? 'Delete Slide' : 'Click again to delete' }}
         </button>
-      <!-- </div> -->
+        <!-- </div> -->
+      </div>
+      <div class="slide-background-edit-actions">
+      <div class="color-picker">
+        <label for="backgroundColor">Background Color:</label>
+        <input
+          type="color"
+          id="backgroundColor"
+          v-model="backgroundColor"
+          title="Choose slide background color"
+        />
+      </div>
+      </div>
+      <div class="slide-title-container">
+        <label for="slideTitle">Slide Title:</label>
+        <input type="text" v-model="slideTitle" placeholder="Slide Title" />
+      </div>
     </div>
 
     <div v-if="error" class="error-message">{{ error }}</div>
@@ -1189,25 +1197,28 @@ watch(
             </div>
           </div>
         </div>
-              <div class="action-buttons centered-under-slide">
-        <button
-          @click="router.push(`/presentations/${presentationId}`)"
-          class="cancel-button"
-        >
-          Cancel
-        </button>
-        <button @click="saveSlide" :disabled="isSubmitting" class="save-button">
-          {{
-            isSubmitting
-              ? 'Saving...'
-              : isEditMode
-              ? 'Save Changes'
-              : 'Create Slide'
-          }}
-        </button>
+        <div class="action-buttons centered-under-slide">
+          <button
+            @click="router.push(`/presentations/${presentationId}`)"
+            class="cancel-button"
+          >
+            Cancel
+          </button>
+          <button
+            @click="saveSlide"
+            :disabled="isSubmitting"
+            class="save-button"
+          >
+            {{
+              isSubmitting
+                ? 'Saving...'
+                : isEditMode
+                ? 'Save Changes'
+                : 'Create Slide'
+            }}
+          </button>
+        </div>
       </div>
-      </div>
-
     </div>
 
     <!-- Element Styling Controls -->
