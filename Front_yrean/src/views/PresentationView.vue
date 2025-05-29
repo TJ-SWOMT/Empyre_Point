@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import PresentationSlidesView from './PresentationSlidesView.vue'
 import { useRouter } from 'vue-router'
+import '../assets/styles/main.css'
 
 const route = useRoute()
 const presentationId = route.params.id
@@ -15,7 +16,8 @@ const error = ref('')
 const checkForSlides = async () => {
   try {
     const response = await presentationApi.getPresentation(presentationId)
-    if (response.success && response.presentation?.slides) {
+    console.log('response', response)
+    if (response.success && response.presentation.slides[0].slide_number) {
       hasSlides.value = response.presentation.slides.length > 0
     }
     if (response.success && response.presentation?.title){
@@ -47,50 +49,53 @@ onMounted(checkForSlides)
 
 <template>
   <div class="presentation-container">
-    <h1 v-if=presentationTitle>{{ presentationTitle }}</h1>
-    <h1 v-else>Presentation {{ presentationId }}</h1>
-    <div v-if="error" class="error-message">{{ error }}</div>
-    <div class="presentation-actions">
-      <button @click="addSlide">Add Slide</button>
-      <button 
-        v-if="hasSlides" 
-        @click="playPresentation"
-        class="play-button"
-      >
-        Play Presentation
-      </button>
+    <div class="presentation-header">
+      <div class="presentation-title" v-if=presentationTitle>{{ presentationTitle }}</div>
+      <div class="presentation-title" v-else>Your Presentation</div>
+      <div v-if="error" class="error-message">{{ error }}</div>
+
     </div>
-    <PresentationSlidesView />
+    <div class="presentation-actions">
+        <button @click="addSlide">Add Slide</button>
+        <button 
+          v-if="hasSlides" 
+          @click="playPresentation"
+          class="play-button"
+        >
+          Play Presentation
+        </button>
+
+      </div>
+
+    <div class="slides-container">
+      <PresentationSlidesView />
+    </div>
   </div>
 </template>
-
 <style scoped>
-.presentation-container {
-  padding: 20px;
-}
-
-.presentation-actions {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.play-button {
-  background-color: #28a745;
+.presentation-header {
+  /* margin-top: 100px; */
+  right: 0;
+  top: calc(var(--header-height) - 10px);
+  position: fixed;
   color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.2s;
+  background-color: var(--white);
+  width: 100%;
+  height: 100px;
+  display: flex; /* Make the container a flex container */
+  align-items: center; /* Vertically center content along the cross-axis */
+  justify-content: center;
+  box-shadow: inset 10px 10px 100px rgba(53, 89, 126, 1);
+
 }
 
-.play-button:hover {
-  background-color: #218838;
-}
-
-.error-message {
-  color: #dc3545;
-  margin: 10px 0;
+.presentation-title {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: var(--button-border);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: 2rem;
+  font-weight: bold;
 }
 </style>

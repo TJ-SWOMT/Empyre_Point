@@ -1,7 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-
+import logo from '../../assets/Empyre_Point_Logo.png'
+import '../assets/styles/main.css'
 const router = useRouter()
 const error = ref('')
 const isSubmitting = ref(false)
@@ -54,6 +55,7 @@ const onSubmit = async () => {
 
 <template>
   <div class="register-container">
+    <img :src="logo" alt="Logo" class="logo">
     <form @submit.prevent="onSubmit" class="register-form">
       <h1>Register</h1>
       <div class="form-group">
@@ -82,3 +84,37 @@ const onSubmit = async () => {
     </form>
   </div>
 </template>
+
+<style scoped>
+/* Only keep component-specific styles that aren't in main.css */
+.register-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--spacing-md);
+}
+
+.register-form {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--spacing-lg);
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+}
+
+.logo {
+  display: block;
+  margin: 0 auto var(--spacing-lg) auto;
+  width: 30vw;
+  max-width: 300px;
+  height: auto;
+}
+
+.login-link {
+  margin-top: var(--spacing-md);
+  text-align: center;
+}
+</style>

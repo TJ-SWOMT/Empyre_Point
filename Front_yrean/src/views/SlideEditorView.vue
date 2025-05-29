@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
+import '../assets/styles/main.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -792,7 +793,7 @@ function updateAvailableHeight() {
         const headerH = headerRef.value?.getBoundingClientRect().height || 0
         const controlsH = controlsRef.value?.getBoundingClientRect().height || 0
         const actionsH = actionButtonsRef.value?.getBoundingClientRect().height || 0
-        const margin = 40
+        const margin = 16 // reduced for tighter fit
         availableHeight.value = window.innerHeight - (headerH + controlsH + actionsH + margin)
         calculateScale()
     })
@@ -842,18 +843,14 @@ watch(scale, (newScale) => {
 
 <template>
     <div class="editor-root">
+
+        <!-- <div class="header-container" ref="headerRef"> -->
+            <div class="header-title-container">
+            <div class="header-title">{{ isEditMode ? 'Edit Slide' : 'Create Slide' }}</div>
+        </div>
         <div class="header-container" ref="headerRef">
-            <h1>{{ isEditMode ? 'Edit Slide' : 'Create Slide' }}</h1>
             <div class="controls" ref="controlsRef">
-                <div class="color-picker">
-                    <label for="backgroundColor">Background Color:</label>
-                    <input 
-                        type="color" 
-                        id="backgroundColor" 
-                        v-model="backgroundColor"
-                        title="Choose slide background color"
-                    />
-                </div>
+                
                 <button 
                     @click="addText" 
                     :class="{ active: isAddingText }"
@@ -864,12 +861,22 @@ watch(scale, (newScale) => {
                 <button @click="addImage">Add Image</button>
                 <button @click="deleteSlide">Delete Slide</button>
             </div>
+            
         </div>
-
+        <div class="color-picker">
+                    <label for="backgroundColor">Background Color:</label>
+                    <input 
+                        type="color" 
+                        id="backgroundColor" 
+                        v-model="backgroundColor"
+                        title="Choose slide background color"
+                    />
+                </div>
         <div v-if="error" class="error-message">{{ error }}</div>
 
         <div class="center-flex">
-            <div class="slide-scale-wrapper" :style="{ height: availableHeight + 'px' }">
+            <!-- <div class="slide-scale-wrapper" :style="{ height: availableHeight + 'px' }"> -->
+                <div class="slide-scale-wrapper">
                 <div 
                     class="slide-container" 
                     :style="{ 
@@ -1114,12 +1121,18 @@ watch(scale, (newScale) => {
 
 <style scoped>
 .editor-root {
-    /* min-height: 100vh; */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    background: #222;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* height: calc(100vh - var(--header-height)); */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: var(--background-color);
+  overflow: hidden;
+  z-index: 1;
 }
 
 .center-flex {
@@ -1130,63 +1143,88 @@ watch(scale, (newScale) => {
     justify-content: center;
     min-height: 0;
     min-width: 0;
+    /* overflow: hidden; */
 }
 
 .slide-scale-wrapper {
     display: block;
     position: relative;
     width: 100vw;
-    /* height is set dynamically via style binding */
-    /* overflow: hidden; */
     margin: 0 auto;
     min-height: 0;
     min-width: 0;
+    /* overflow: hidden; */
+    /* height: 70%; */
 }
 
 .slide-container {
-    background-color: white;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+    background-color: var(--white);
+    box-shadow: var(--shadow-lg);
     position: absolute;
-    /* overflow: hidden; */
-    border: 1px solid #ccc;
+    border: 1px solid var(--border-color);
     cursor: crosshair;
     transform-origin: top left;
     box-sizing: border-box;
-    /* left/top/translate handled inline */
+}
+
+.header-title-container {
+  /* margin-top: 100px; */
+  right: 0;
+  top: calc(var(--header-height) - 10px);
+  position: fixed;
+  color: white;
+  background-color: var(--white);
+  width: 100%;
+  height: 100px;
+  display: flex; /* Make the container a flex container */
+  align-items: center; /* Vertically center content along the cross-axis */
+  justify-content: center;
+  box-shadow: inset 10px 10px 100px rgba(53, 89, 126, 1);
+
+}
+
+.header-title {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: var(--button-border);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: 2rem;
+  font-weight: bold;
 }
 
 .header-container {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    padding: 10px;
-    max-width: 960px;
-    margin: 0;
+    padding: var(--spacing-sm);
+    width: 100%;
+    margin-top: calc(var(--header-height));
 }
 
 .controls {
     display: flex;
-    gap: 10px;
+    gap: var(--spacing-sm);
     align-items: center;
 }
 
 .color-picker {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-xs);
 }
 
 .color-picker label {
-    font-size: 14px;
-    color: #666;
+    font-size: 1rem;
+    color: var(--text-light);
 }
 
 .color-picker input[type="color"] {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     padding: 0;
-    border: 2px solid #ddd;
-    border-radius: 4px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
     cursor: pointer;
 }
 
@@ -1208,8 +1246,8 @@ watch(scale, (newScale) => {
 .action-buttons {
     display: flex;
     justify-content: center;
-    gap: 20px;
-    margin: 24px 0 32px 0;
+    gap: var(--spacing-md);
+    margin: var(--spacing-lg) 0 var(--spacing-xl) 0;
     width: 100vw;
     position: relative;
     z-index: 10;
@@ -1262,7 +1300,7 @@ watch(scale, (newScale) => {
 }
 
 .element.selected {
-    outline: 2px solid #007bff;
+    outline: 2px solid var(--secondary-color);
 }
 
 .element-controls {
