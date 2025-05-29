@@ -69,12 +69,14 @@ const createPresentation = async () => {
         <div class="presentation-form">
             <div class="form-group">
                 <label for="title">Presentation Title</label>
-                <input id="title" v-model="title" type="text" placeholder="Enter presentation title" required />
+                <input id="title" v-model="title" type="text" placeholder="Enter presentation title" required maxlength="32"/>
+                <div class="char-count">{{ title.length }}/32 characters</div>
             </div>
             <div class="form-group">
                 <label for="description">Description (Optional)</label>
                 <textarea id="description" v-model="description" placeholder="Enter presentation description"
-                    rows="3"></textarea>
+                    rows="3" maxlength="200"></textarea>
+                <div class="char-count">{{ description.length }}/200 characters</div>
             </div>
             <button @click="createPresentation" :disabled="isSubmitting">
                 {{ isSubmitting ? 'Creating...' : 'Create Presentation' }}
@@ -133,5 +135,12 @@ textarea {
   border-radius: var(--border-radius);
   font-size: 2rem;
   font-weight: bold;
+}
+
+.char-count {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  text-align: right;
+  margin-top: 2px;
 }
 </style>

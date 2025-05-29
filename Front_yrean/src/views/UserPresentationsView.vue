@@ -43,9 +43,14 @@ const viewPresentation = (presentationId) => {
 }
 
 const checkSureness = (presentationId, event) => {
-  event.preventDefault()
-  event.stopPropagation()
+  console.log('checkSureness', presentationId, event)
+  sessionStorage.setItem('pId', presentationId)
+  sessionStorage.setItem('e', event)
+  // event.preventDefault()
+  // event.stopPropagation()
+  console.log('presentationSureness', presentationSureness.value)
   presentationSureness.value[presentationId] = !presentationSureness.value[presentationId]
+  console.log('presentationSureness', presentationSureness.value)
 }
 
 const deletePresentation = async (presentationId, event) => {
@@ -60,10 +65,26 @@ const deletePresentation = async (presentationId, event) => {
 }
 
 const resetSureness = (presentationId, event) => {
+  console.log('resetSureness', presentationId, event)
   if (!presentationSureness.value[presentationId]) {
     presentationSureness.value[presentationId] = false
   }
+  checkSureness(sessionStorage.getItem('pId'), sessionStorage.getItem('e'))
 }
+
+const onClickOutside = (selector, callback) => {
+  document.addEventListener('click', e => {
+    const elements = document.querySelectorAll(selector);
+    let isInside = false;
+    elements.forEach(el => {
+      if (el.contains(e.target)) isInside = true;
+    });
+    if (!isInside) callback();
+  });
+};
+// onClickOutside('.delete-presentation-button', () => console.log('Hello'));
+onClickOutside('#delete-presentation-button', () => resetSureness());
+// Will log 'Hello' whenever the user clicks outside of #my-element
 
 onMounted(fetchPresentations)
 </script>
@@ -93,7 +114,10 @@ onMounted(fetchPresentations)
            class="presentation-card"
 >
         <h3>{{ presentation.title }}</h3>
-        <p v-if="presentation.description">{{ presentation.description }}</p>
+        <div class="description-container">
+          <p v-if="presentation.description" class="truncated-description">{{ presentation.description }}</p>
+          <div v-if="presentation.description" class="tooltip">{{ presentation.description }}</div>
+        </div>
         <div class="presentation-meta">
           <span>Created: {{ new Date(presentation.created_at).toLocaleDateString() }}</span>
           <br>
@@ -102,7 +126,7 @@ onMounted(fetchPresentations)
         <button @click="viewPresentation(presentation.presentation_id)" class="btn btn-secondary">View Presentation</button>
         <button 
           @click.stop="presentationSureness[presentation.presentation_id] ? deletePresentation(presentation.presentation_id, $event) : checkSureness(presentation.presentation_id, $event)" 
-          class="btn btn-danger"
+          class="btn btn-danger delete-presentation-button"
         >
           {{ !presentationSureness[presentation.presentation_id] ? 'Delete Presentation' : 'Click again to delete' }}
         </button>
@@ -125,8 +149,14 @@ onMounted(fetchPresentations)
 }
 
 .presentation-card {
-  margin-top: var(--spacing-sm);
+  /* margin-top: var(--spacing-sm); */
   width: 100%;
+  overflow: visible; /* Allow tooltip to overflow */
+  position: relative; /* Ensure stacking context for tooltip */
+}
+
+.presentations-grid {
+  overflow: visible; /* Allow tooltip to overflow grid */
 }
 
 .header_user_presentations {
@@ -153,6 +183,57 @@ onMounted(fetchPresentations)
   border-radius: var(--border-radius);
   font-size: 2rem;
   font-weight: bold;
+}
+
+.description-container {
+  position: relative;
+  margin: var(--spacing-sm) 0;
+}
+
+.truncated-description {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  margin: 0;
+}
+
+.tooltip {
+  visibility: hidden;
+  position: absolute;
+  z-index: 9999; /* Ensure tooltip is above all other elements */
+  background-color: var(--primary-color);
+  color: var(--white);
+  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  width: max-content;
+  max-width: 300px;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 10px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: var(--primary-color) transparent transparent transparent;
+}
+
+.description-container:hover .tooltip {
+  visibility: visible;
+  opacity: 1;
 }
 </style>
 
