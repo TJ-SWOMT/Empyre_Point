@@ -227,7 +227,19 @@ watch(currentSlide, (newSlide) => {
         <!-- Background image -->
         <div v-if="currentSlide.background_image_url" 
              class="background-image"
-             :style="{ backgroundImage: `url(${currentSlide.background_image_url})` }">
+             :style="{
+               backgroundImage: `url(${currentSlide.background_image_url})`,
+               backgroundSize: currentSlide.background_image_fit || 'cover',
+               backgroundPosition: 'center',
+               backgroundRepeat: 'no-repeat',
+               opacity: currentSlide.background_image_opacity || 1,
+               position: 'absolute',
+               top: 0,
+               left: 0,
+               right: 0,
+               bottom: 0,
+               zIndex: 0
+             }">
         </div>
         <!-- Loading indicator for current slide -->
         <div v-if="!isCurrentSlideReady" class="slide-loading">
