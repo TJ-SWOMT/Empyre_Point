@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
+import '../assets/styles/main.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -9,6 +10,25 @@ const presentationId = route.params.id
 const slides = ref([])
 const error = ref('')
 const isLoading = ref(true)
+const slidesGrid = ref(null)
+
+const slidesGridClass = computed(() => {
+  if (!slides.value || slides.value.length === 0) return ''
+  if (slides.value.length === 1) return 'slides-center'
+  // If the slides fit in the viewport, use space-between, else flex-start
+  // We'll use a heuristic: if total slide width + gaps < container width, use space-between
+  // Otherwise, use flex-start
+  // Each slide: 200px + gap (var(--spacing-md)), container: 100vw - margins
+  const slideWidth = 200
+  const gap = 24 // fallback for var(--spacing-md)
+  const margin = 48 // fallback for edge margin
+  const totalWidth = slides.value.length * slideWidth + (slides.value.length - 1) * gap
+  if (typeof window !== 'undefined') {
+    const containerWidth = window.innerWidth - 2 * margin
+    if (totalWidth < containerWidth) return 'slides-between'
+  }
+  return 'slides-scrollable'
+})
 
 const fetchSlides = async () => {
   try {
@@ -25,7 +45,7 @@ const fetchSlides = async () => {
     }
     
     // Log the raw slides data
-    console.log('Raw slides data:', JSON.stringify(response.presentation.slides, null, 2))
+    // console.log('Raw slides data:', JSON.stringify(response.presentation.slides, null, 2))
     
     // More explicit handling of the slides data
     let presentationSlides = response.presentation.slides
@@ -60,96 +80,137 @@ onMounted(fetchSlides)
 </script>
 
 <template>
-  <div class="slides-container">
-    <div v-if="error" class="error-message">{{ error }}</div>
-    
-    <div v-if="isLoading" class="loading">
-      Loading slides...
-    </div>
+  <div class="slides-viewport">
 
-    <div v-else-if="!slides || slides.length === 0" class="no-slides">
-      <p>No slides for this presentation.</p>
-    </div>
-
-    <div v-else class="slides-grid">
-      <template v-for="(slide, index) in slides" :key="slide.slide_id">
-        <div v-if="slide && slide.slide_id" 
-             class="slide-thumbnail"
-             @click="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)"
-             role="button"
-             tabindex="0"
-             @keyup.enter="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)">
-          <div class="thumbnail" 
-               :style="{ backgroundColor: slide.background_color }">
-            <!-- Placeholder for slide content -->
-            <div v-if="slide.background_image_url" 
-                 class="background-image"
-                 :style="{ backgroundImage: `url(${slide.background_image_url})` }">
+    <div class="slides-scroll">
+      <div v-if="error" class="error-message">{{ error }}</div>
+      <div v-if="isLoading" class="loading">Loading slides...</div>
+      <div v-else-if="!slides || slides.length === 0" class="no-slides">
+        <p>No slides for this presentation.</p>
+      </div>
+      <div v-else :class="['slides-grid', slidesGridClass]" ref="slidesGrid">
+        <template v-for="(slide, index) in slides" :key="slide.slide_id">
+          <div v-if="slide && slide.slide_id" 
+               class="slide-thumbnail"
+               @click="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)"
+               role="button"
+               tabindex="0"
+               @keyup.enter="router.push(`/presentations/${presentationId}/slides/${Number(slide.slide_id)}`)">
+            <div class="thumbnail" 
+                 :style="{ backgroundColor: slide.background_color }">
+              <div v-if="slide.background_image_url" 
+                   class="background-image"
+                   :style="{ backgroundImage: `url(${slide.background_image_url})` }">
+              </div>
             </div>
+            <div class="slide-number">Slide {{ slide.slide_number }}</div>
           </div>
-          <div class="slide-number">Slide {{ slide.slide_number }}</div>
-        </div>
-      </template>
+        </template>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.slides-container {
-  padding: 20px;
+.slides-viewport {
+  display: flex;
+  /* flex-direction: row; */
+  /* align-items: stretch; */
+  /* justify-content: center; */
+
+  /* height: 100vh; */
+  /* top: calc(var(--header-height) + var(--spacing-md)); */
+  width: 100vw;
+  box-sizing: border-box;
+  /* padding-top: var(--header-height); */
+  position: relative;
+  background: var(--background-color);
+  overflow: visible;
 }
 
-.error-message {
-  color: #dc3545;
-  margin: 10px 0;
-  text-align: center;
+.slides-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  /* align-items: center; */
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 60vh;
+  position: relative;
+  scroll-behavior: smooth;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;  /* IE and Edge */
 }
 
-.loading {
-  text-align: center;
-  color: #666;
-  margin: 20px 0;
-}
-
-.no-slides {
-  text-align: center;
-  color: #666;
-  margin: 20px 0;
+.slides-scroll::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari, Opera */
 }
 
 .slides-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 20px;
-  padding: 20px 0;
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-md, 24px);
+  min-width: min-content;
+  margin: 0 48px;
+  width: 100%;
+  align-items: center;
 }
 
+.slides-center {
+  justify-content: center;
+}
+
+.slides-between {
+  justify-content: space-between;
+}
+
+.slides-scrollable {
+  justify-content: flex-start;
+}
+
+/* .fade-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(to bottom, var(--background-color) 80%, transparent 100%);
+} */
+
 .slide-thumbnail {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-xs);
   cursor: pointer;
   transition: transform 0.2s ease;
+  /* Prevent hover scaling from causing layout shifts */
+  transform-origin: center center;
 }
 
 .slide-thumbnail:hover {
-  transform: scale(1.02);
+  transform: scale(1.5);
 }
 
 .slide-thumbnail:focus {
-  outline: 2px solid #007bff;
+  outline: 2px solid var(--secondary-color);
   outline-offset: 2px;
 }
 
 .thumbnail {
-  width: 200px;
-  height: 112.5px; /* 16:9 aspect ratio */
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  width: calc(2vw*16);
+  height: calc(2vw*9);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
   overflow: hidden;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: var(--white);
+  box-shadow: var(--shadow);
+  /* Prevent thumbnail from shrinking */
+  flex-shrink: 0;
 }
 
 .background-image {
@@ -160,8 +221,14 @@ onMounted(fetchSlides)
 }
 
 .slide-number {
-  font-size: 14px;
-  color: #666;
+  font-size: 0.875rem;
+  color: var(--text-light);
   font-weight: 500;
+}
+
+.no-slides {
+  text-align: center;
+  color: var(--text-light);
+  margin: var(--spacing-md) 0;
 }
 </style>

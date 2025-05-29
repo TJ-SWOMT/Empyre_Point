@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
+import '../assets/styles/main.css'
 
 // Function to render element content with markdown
 const renderElementContent = (element) => {
@@ -343,13 +344,13 @@ watch(currentSlide, (newSlide) => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: #000;
+  /* background-color: #000; */
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 20px;
+  padding: var(--spacing-md);
   box-sizing: border-box;
 }
 
@@ -365,23 +366,22 @@ watch(currentSlide, (newSlide) => {
 .slide-display {
   width: 960px;
   height: 540px;
-  background-color: white;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+  background-color: var(--white);
+  box-shadow: var(--shadow-lg);
   position: absolute;
   overflow: hidden;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   cursor: pointer;
   transform-origin: top left;
   box-sizing: border-box;
-  /* left/top/translate handled inline */
 }
 
 .slide-elements {
   position: absolute;
   top: 0;
   left: 0;
-  width: 960px;  /* Match edit view dimensions */
-  height: 540px; /* Match edit view dimensions */
+  width: 960px;
+  height: 540px;
   pointer-events: none;
   overflow: visible;
 }
@@ -426,54 +426,54 @@ watch(currentSlide, (newSlide) => {
 
 .navigation-controls {
   position: fixed;
-  bottom: 20px;
+  bottom: var(--spacing-md);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  gap: 20px;
+  gap: var(--spacing-md);
   align-items: center;
   background-color: rgba(0, 0, 0, 0.7);
-  padding: 10px 20px;
-  border-radius: 8px;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
   z-index: 1000;
 }
 
 .nav-button {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--secondary-color);
+  color: var(--white);
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius);
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .nav-button:hover:not(:disabled) {
-  background-color: #0056b3;
+  background-color: var(--secondary-hover);
 }
 
 .nav-button:disabled {
-  background-color: #ccc;
+  background-color: var(--text-light);
   cursor: not-allowed;
 }
 
 .exit-button {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--danger-color);
+  color: var(--white);
   border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius);
   cursor: pointer;
   transition: background-color 0.2s;
 }
 
 .exit-button:hover {
-  background-color: #c82333;
+  background-color: var(--danger-hover);
 }
 
 .slide-counter {
-  color: white;
-  font-size: 14px;
+  color: var(--white);
+  font-size: 0.875rem;
   min-width: 100px;
   text-align: center;
 }
@@ -499,10 +499,10 @@ watch(currentSlide, (newSlide) => {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 4px;
-  font-size: 14px;
+  color: var(--white);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  font-size: 0.875rem;
   z-index: 1000;
 }
 
@@ -522,7 +522,6 @@ watch(currentSlide, (newSlide) => {
 .markdown-content {
   width: 100%;
   height: 100%;
-  /* overflow: auto; */
 }
 
 .markdown-content :deep(h1) {
@@ -554,12 +553,12 @@ watch(currentSlide, (newSlide) => {
 }
 
 .markdown-content :deep(a) {
-  color: #007bff;
+  color: var(--secondary-color);
   text-decoration: underline;
 }
 
 .markdown-content :deep(a:hover) {
-  color: #0056b3;
+  color: var(--secondary-hover);
 }
 
 .markdown-content :deep(code) {
