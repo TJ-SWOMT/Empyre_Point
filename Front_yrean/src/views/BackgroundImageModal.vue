@@ -138,8 +138,8 @@ watch(() => props.currentFit, (newFit) => {
       <div class="modal-body">
         <div v-if="error" class="error-message">{{ error }}</div>
 
-        <!-- Upload Section - Only show when no image exists -->
-        <div v-if="!isEditMode" class="background-image-upload-section">
+        <!-- Upload Section - Show when no image exists -->
+        <div v-if="!previewUrl" class="background-image-upload-section">
           <label class="background-image-upload-button">
             <input
               type="file"
@@ -195,21 +195,20 @@ watch(() => props.currentFit, (newFit) => {
           <!-- Action Buttons -->
           <div class="background-image-action-buttons">
             <!-- Remove Button -->
-            <button class="background-image-remove-button" @click="handleRemove">
+            <button class="background-image-remove-button" @click="previewUrl = null">
               Remove Background Image
             </button>
-            
             <!-- Upload New Button - Only show in edit mode -->
             <button v-if="isEditMode" class="background-image-upload-new-button" @click="previewUrl = null">
               Upload New Image
             </button>
           </div>
+        </div>
 
-          <!-- Modal Action Buttons -->
-          <div class="background-image-modal-action-buttons">
-            <button class="background-image-cancel-button" @click="handleClose">Cancel</button>
-            <button class="background-image-ok-button" @click="handleOk">OK</button>
-          </div>
+        <!-- Modal Action Buttons - Always show -->
+        <div class="background-image-modal-action-buttons">
+          <button class="background-image-cancel-button" @click="handleClose">Cancel</button>
+          <button class="background-image-ok-button" @click="handleOk">OK</button>
         </div>
       </div>
     </div>

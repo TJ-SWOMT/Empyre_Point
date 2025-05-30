@@ -1495,7 +1495,9 @@ const toggleStyling = () => {
                   boxSizing: 'border-box',
                   background: 'rgba(255, 255, 255, 0.1)',
                   cursor: 'text',
-                  color: element.element_data?.font_color || '#000000'
+                  color: element.element_data?.font_color || '#000000',
+                  fontSize: (element.element_data?.font_size || 18) + 'px',
+                  fontFamily: element.element_data?.font_family || 'Arial'
                 }"
               ></div>
             </div>
@@ -1603,6 +1605,23 @@ const toggleStyling = () => {
             <option value="Arial">Arial</option>
             <option value="Times New Roman">Times New Roman</option>
             <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Tahoma">Tahoma</option>
+            <option value="Trebuchet MS">Trebuchet MS</option>
+            <option value="Helvetica">Helvetica</option>
+            <option value="Impact">Impact</option>
+            <option value="Comic Sans MS">Comic Sans MS</option>
+            <option value="Lucida Console">Lucida Console</option>
+            <option value="Palatino Linotype">Palatino Linotype</option>
+            <option value="Garamond">Garamond</option>
+            <option value="Bookman">Bookman</option>
+            <option value="Arial Black">Arial Black</option>
+            <option value="Candara">Candara</option>
+            <option value="Century Gothic">Century Gothic</option>
+            <option value="Calibri">Calibri</option>
+            <option value="Optima">Optima</option>
+            <option value="Monaco">Monaco</option>
           </select>
         </div>
         <div v-if="selectedElement.element_type === 'text'" class="control-group">
@@ -1736,6 +1755,8 @@ const toggleStyling = () => {
 <style>
 .text-editor * {
   color: inherit !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
 }
 </style>
 

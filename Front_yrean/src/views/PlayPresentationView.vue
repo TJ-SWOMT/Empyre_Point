@@ -334,7 +334,10 @@ watch(currentSlide, (newSlide) => {
                   fontStyle: element.italic ? 'italic' : 'normal',
                   textDecoration: element.underline ? 'underline' : 'none',
                   padding: '2px',
-                  lineHeight: '1.2'
+                  lineHeight: '1.2',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap',
+                  fontFamily: element.font_family || 'Arial'
                 }">
                   <div 
                     v-html="renderElementContent(element)" 
@@ -380,4 +383,12 @@ watch(currentSlide, (newSlide) => {
       </button>
     </div>
   </div>
-</template> 
+</template>
+
+<style>
+.element-content * {
+  color: inherit !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+}
+</style> 
