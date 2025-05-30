@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
-import BackgroundImageModal from '../components/BackgroundImageModal.vue'
+import BackgroundImageModal from './BackgroundImageModal.vue'
 import '../assets/styles/empyre-point.css'
 
 const route = useRoute()
@@ -125,12 +125,19 @@ const backgroundImage = ref(null)
 const backgroundImageOpacity = ref(1)
 const backgroundImageFit = ref('cover')
 
+// Add new refs for slide number
+const totalSlides = ref(0)
+const newSlideNumber = ref(1)
+
 const loadSlideData = async () => {
   if (!isEditMode.value) return
 
   try {
     const response = await presentationApi.getPresentation(presentationId)
     if (response.error) throw new Error(response.error)
+
+    // Get total slides count
+    totalSlides.value = response.presentation.slides.length
 
     // Convert slideId to number for comparison since it comes from route params
     const slide = response.presentation.slides.find(
@@ -141,6 +148,7 @@ const loadSlideData = async () => {
         ...slide,
         slide_id: Number(slide.slide_id) // Ensure consistent type
       }
+      newSlideNumber.value = slide.slide_number // Initialize the new slide number
       backgroundColor.value = slide.background_color || '#FFFFFF'
       slideTitle.value = slide.title || ''
       backgroundImage.value = slide.background_image_url || null
@@ -173,15 +181,13 @@ const saveSlide = async (shouldRedirect = false) => {
 
     let response
     if (isEditMode.value) {
-      console.log('isEditMode.value', isEditMode.value)
-      console.log('slideData.value', slideData.value)
       if (!slideData.value) {
         throw new Error('Slide data not loaded')
       }
-      // Update existing slide
+      // Update existing slide with new slide number if it changed
       response = await presentationApi.updateSlide(
         Number(slideId.value),
-        slideData.value.slide_number,
+        newSlideNumber.value !== slideData.value.slide_number ? newSlideNumber.value : undefined,
         backgroundColor.value,
         backgroundImage.value,
         slideTitle.value,
@@ -231,13 +237,11 @@ const saveSlide = async (shouldRedirect = false) => {
     } else {
       // For new slides, just update the URL without redirecting
       if (!isEditMode.value && response.slide) {
-        router.replace(
-          `/presentations/${presentationId}/slides/${response.slide.slide_id}`
-        )
+        // Change the route to the new slide's edit URL to switch to edit mode
+        router.replace(`/presentations/${presentationId}/slides/${response.slide.slide_id}`)
+        return response
       }
     }
-
-    return response
   } catch (err) {
     error.value = handleApiError(err)
     return null
@@ -1227,6 +1231,21 @@ const handleBackgroundImageRemove = () => {
           </div>
         </div>
         <div class="action-buttons centered-under-slide">
+          <div class="slide-number-input">
+            <label for="slideNumber">Slide Number:</label>
+            <div class="slide-number-wrapper">
+              <input
+                id="slideNumber"
+                type="number"
+                v-model.number="newSlideNumber"
+                :min="1"
+                :max="totalSlides"
+                step="1"
+                :disabled="!isEditMode"
+              />
+              <span class="slide-number-total">of {{ totalSlides }}</span>
+            </div>
+          </div>
           <button
             @click="router.push(`/presentations/${presentationId}`)"
             class="cancel-button"
@@ -1504,5 +1523,63 @@ const handleBackgroundImageRemove = () => {
 
 .background-image-layer {
   pointer-events: none; /* Allow clicks to pass through to elements */
+}
+
+.slide-number-input {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+.slide-number-input label {
+  color: var(--white);
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  white-space: nowrap;
+}
+
+.slide-number-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.slide-number-input input {
+  width: 50px;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+  text-align: center;
+}
+
+.slide-number-total {
+  color: var(--white);
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  white-space: nowrap;
+}
+
+.slide-number-input input:disabled {
+  background-color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .slide-number-input {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .slide-number-wrapper {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .slide-number-input input {
+    width: 40px;
+  }
 }
 </style>

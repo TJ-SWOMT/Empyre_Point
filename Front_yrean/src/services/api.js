@@ -83,14 +83,14 @@ export const presentationApi = {
     return response.json()
   },
 
-  async updatePresentation(presentation_id, title, description) {
+  async updatePresentation(presentation_id, updateData) {
     const response = await fetch(`${API_BASE_URL}/presentations/${presentation_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ title, description })
+      body: JSON.stringify(updateData)
     })
     return response.json()
   },

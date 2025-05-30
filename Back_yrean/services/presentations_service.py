@@ -247,7 +247,7 @@ class PresentationsService:
                     # Insert the new slide with the next available number
                     cur.execute("""
                         INSERT INTO slides (presentation_id, slide_number, background_color, background_image_url, title, background_image_opacity, background_image_fit)
-                        VALUES (%s, %s, %s, %s, %s)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s)
                         RETURNING slide_id, presentation_id, slide_number, background_color, 
                                 background_image_url, title, created_at, updated_at, background_image_opacity, background_image_fit
                     """, (presentation_id, next_number, background_color, background_image_url, title, background_image_opacity, background_image_fit))
@@ -272,7 +272,7 @@ class PresentationsService:
                      background_image_fit: Optional[str] = None
                      ) -> Optional[Dict[str, Any]]:
         """
-        Update a slide's properties.
+        Update a slide's properties, including shifting slide numbers to maintain uniqueness/order.
         """
         try:
             if not any([
@@ -280,30 +280,62 @@ class PresentationsService:
                 background_image_opacity is not None, background_image_fit is not None
             ]):
                 raise Exception("At least one field must be provided for update")
-            update_fields = []
-            params = []
-            if slide_number is not None:
-                update_fields.append("slide_number = %s")
-                params.append(slide_number)
-            if background_color:
-                update_fields.append("background_color = %s")
-                params.append(background_color)
-            if background_image_url:
-                update_fields.append("background_image_url = %s")
-                params.append(background_image_url)
-            if title is not None:
-                update_fields.append("title = %s")
-                params.append(title)
-            if background_image_opacity is not None:
-                update_fields.append("background_image_opacity = %s")
-                params.append(background_image_opacity)
-            if background_image_fit is not None:
-                update_fields.append("background_image_fit = %s")
-                params.append(background_image_fit)
-            update_fields.append("updated_at = NOW()")
-            params.append(slide_id)
+
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
+                    # Get current slide info
+                    cur.execute("""
+                        SELECT slide_number, presentation_id FROM slides WHERE slide_id = %s
+                    """, (slide_id,))
+                    current = cur.fetchone()
+                    if not current:
+                        raise Exception("Slide not found")
+                    old_number = current['slide_number']
+                    presentation_id = current['presentation_id']
+
+                    # If slide_number is being changed, shift others
+                    if slide_number is not None and slide_number != old_number:
+                        # Get total slides
+                        cur.execute("SELECT COUNT(*) FROM slides WHERE presentation_id = %s", (presentation_id,))
+                        total = cur.fetchone()['count']
+                        if slide_number < 1 or slide_number > total:
+                            raise Exception("Invalid slide number")
+                        if slide_number < old_number:
+                            # Moving up: increment slide_number for slides between new and old-1
+                            cur.execute("""
+                                UPDATE slides SET slide_number = slide_number + 1
+                                WHERE presentation_id = %s AND slide_number >= %s AND slide_number < %s
+                            """, (presentation_id, slide_number, old_number))
+                        else:
+                            # Moving down: decrement slide_number for slides between old+1 and new
+                            cur.execute("""
+                                UPDATE slides SET slide_number = slide_number - 1
+                                WHERE presentation_id = %s AND slide_number > %s AND slide_number <= %s
+                            """, (presentation_id, old_number, slide_number))
+
+                    # Now update the target slide
+                    update_fields = []
+                    params = []
+                    if slide_number is not None:
+                        update_fields.append("slide_number = %s")
+                        params.append(slide_number)
+                    if background_color:
+                        update_fields.append("background_color = %s")
+                        params.append(background_color)
+                    if background_image_url:
+                        update_fields.append("background_image_url = %s")
+                        params.append(background_image_url)
+                    if title is not None:
+                        update_fields.append("title = %s")
+                        params.append(title)
+                    if background_image_opacity is not None:
+                        update_fields.append("background_image_opacity = %s")
+                        params.append(background_image_opacity)
+                    if background_image_fit is not None:
+                        update_fields.append("background_image_fit = %s")
+                        params.append(background_image_fit)
+                    update_fields.append("updated_at = NOW()")
+                    params.append(slide_id)
                     cur.execute(f"""
                         UPDATE slides 
                         SET {', '.join(update_fields)}

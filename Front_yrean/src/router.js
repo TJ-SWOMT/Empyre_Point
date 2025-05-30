@@ -44,6 +44,11 @@ const routes = [
     path: '/presentations/:id',
     name: 'Presentation',
     component: () => import('./views/PresentationView.vue')
+  },
+  {
+    path: '/presentations/:id/edit',
+    name: 'EditPresentation',
+    component: () => import('./views/EditPresentationModalView.vue')
   }
 ]
 

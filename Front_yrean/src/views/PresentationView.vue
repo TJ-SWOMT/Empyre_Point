@@ -49,6 +49,10 @@ const addSlide = () => {
   router.push(`/presentations/${presentationId}/slides/new`)
 }
 
+const editPresentation = () => {
+  router.push(`/presentations/${presentationId}/edit`)
+}
+
 const playPresentation = () => {
   console.log('Navigating to play presentation:', `/presentations/${presentationId}/play`)
   console.log('Current route:', route.path)
@@ -71,14 +75,15 @@ onMounted(checkForSlides)
     </div>
     <div class="presentation-actions">
       <button @click="addSlide">Add Slide</button>
-      <div v-if=presentationDescription class="presentation-description">{{ presentationDescription }}</div>
+      <button @click="editPresentation">Edit Presentation</button>
       <button 
-        v-if="hasSlides" 
+        :disabled="!hasSlides"
         @click="playPresentation"
         class="play-button"
       >
         Play Presentation
       </button>
+      <div v-if=presentationDescription class="presentation-description">{{ presentationDescription }}</div>
     </div>
     <div class="slides-container">
       <PresentationSlidesView />
