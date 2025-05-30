@@ -2872,4 +2872,8 @@ textarea {
     height: 100%;
     overflow: hidden;
   }
-} 
+}
+
+body.play-mode .header {
+  display: none !important;
+}

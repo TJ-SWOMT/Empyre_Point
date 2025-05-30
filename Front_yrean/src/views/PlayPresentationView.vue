@@ -188,10 +188,12 @@ const handleKeyPress = (event) => {
 onMounted(() => {
   fetchSlides()
   window.addEventListener('keydown', handleKeyPress)
+  document.body.classList.add('play-mode')
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
+  document.body.classList.remove('play-mode')
 })
 
 watch(currentSlide, () => nextTick(() => {}))
