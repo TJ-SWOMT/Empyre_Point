@@ -1485,17 +1485,18 @@ const toggleStyling = () => {
               <div
                 v-else
                 v-html="marked(element.element_data?.content || '')"
-                style="
-                  width: 100%;
-                  height: 100%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  padding: 5px;
-                  box-sizing: border-box;
-                  background: rgba(255, 255, 255, 0.1);
-                  cursor: text;
-                "
+                :style="{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '5px',
+                  boxSizing: 'border-box',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  cursor: 'text',
+                  color: element.element_data?.font_color || '#000000'
+                }"
               ></div>
             </div>
 
@@ -1626,11 +1627,6 @@ const toggleStyling = () => {
             id="font-color"
             type="color"
             v-model="selectedElement.element_data.font_color"
-            @change="
-              updateElement(selectedElement.element_id, {
-                font_color: selectedElement.element_data.font_color
-              })
-            "
           />
         </div>
         <!-- <div class="control-group">
@@ -1736,4 +1732,10 @@ const toggleStyling = () => {
     />
   </div>
 </template>
+
+<style>
+.text-editor * {
+  color: inherit !important;
+}
+</style>
 
