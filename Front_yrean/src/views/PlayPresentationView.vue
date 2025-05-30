@@ -238,7 +238,7 @@ watch(currentSlide, (newSlide) => {
              :style="{
                backgroundImage: `url(${currentSlide.background_image_url})`,
                backgroundSize: currentSlide.background_image_fit || 'cover',
-               backgroundPosition: 'center',
+               backgroundPosition: currentSlide.background_image_position || 'center',
                backgroundRepeat: 'no-repeat',
                opacity: currentSlide.background_image_opacity || 1,
                position: 'absolute',

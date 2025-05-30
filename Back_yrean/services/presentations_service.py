@@ -81,6 +81,8 @@ class PresentationsService:
                                    'background_color', s.background_color,
                                    'background_image_url', s.background_image_url,
                                    'title', s.title,
+                                   'background_image_opacity', s.background_image_opacity,
+                                   'background_image_fit', s.background_image_fit,
                                    'created_at', s.created_at,
                                    'updated_at', s.updated_at
                                ) ORDER BY s.slide_number) as slides
@@ -208,7 +210,9 @@ class PresentationsService:
     def create_slide(self, presentation_id: str, slide_number: int, 
                     background_color: str = '#FFFFFF', 
                     background_image_url: Optional[str] = None,
-                    title: str = '') -> Dict[str, Any]:
+                    title: str = '',
+                    background_image_opacity: float = 1,
+                    background_image_fit: str = 'cover') -> Dict[str, Any]:
         """
         Create a new slide in a presentation.
         
@@ -242,11 +246,11 @@ class PresentationsService:
                     
                     # Insert the new slide with the next available number
                     cur.execute("""
-                        INSERT INTO slides (presentation_id, slide_number, background_color, background_image_url, title)
+                        INSERT INTO slides (presentation_id, slide_number, background_color, background_image_url, title, background_image_opacity, background_image_fit)
                         VALUES (%s, %s, %s, %s, %s)
                         RETURNING slide_id, presentation_id, slide_number, background_color, 
-                                background_image_url, title, created_at, updated_at
-                    """, (presentation_id, next_number, background_color, background_image_url, title))
+                                background_image_url, title, created_at, updated_at, background_image_opacity, background_image_fit
+                    """, (presentation_id, next_number, background_color, background_image_url, title, background_image_opacity, background_image_fit))
                     
                     slide = cur.fetchone()
                     conn.commit()
@@ -259,30 +263,25 @@ class PresentationsService:
         except Exception as e:
             raise Exception(f"Error creating slide: {str(e)}")
 
-    def update_slide(self, slide_id: str, slide_number: Optional[int] = None,
-                    background_color: Optional[str] = None,
-                    background_image_url: Optional[str] = None,
-                    title: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def update_slide(self, slide_id: str,
+                     slide_number: Optional[int] = None,
+                     background_color: Optional[str] = None,
+                     background_image_url: Optional[str] = None,
+                     title: Optional[str] = None,
+                     background_image_opacity: Optional[float] = None,
+                     background_image_fit: Optional[str] = None
+                     ) -> Optional[Dict[str, Any]]:
         """
         Update a slide's properties.
-        
-        Args:
-            slide_id: The UUID of the slide to update
-            slide_number: New position in the presentation (optional)
-            background_color: New background color (optional)
-            background_image_url: New background image URL (optional)
-            title: New title for the slide (optional)
-            
-        Returns:
-            Dict containing updated slide information or None if not found
         """
         try:
-            if not any([slide_number is not None, background_color, background_image_url, title is not None]):
+            if not any([
+                slide_number is not None, background_color, background_image_url, title is not None,
+                background_image_opacity is not None, background_image_fit is not None
+            ]):
                 raise Exception("At least one field must be provided for update")
-            
             update_fields = []
             params = []
-            
             if slide_number is not None:
                 update_fields.append("slide_number = %s")
                 params.append(slide_number)
@@ -295,55 +294,26 @@ class PresentationsService:
             if title is not None:
                 update_fields.append("title = %s")
                 params.append(title)
-            
+            if background_image_opacity is not None:
+                update_fields.append("background_image_opacity = %s")
+                params.append(background_image_opacity)
+            if background_image_fit is not None:
+                update_fields.append("background_image_fit = %s")
+                params.append(background_image_fit)
             update_fields.append("updated_at = NOW()")
             params.append(slide_id)
-            
             with self._get_connection() as conn:
                 with conn.cursor() as cur:
-                    # If updating slide number, we need to handle reordering
-                    if slide_number is not None:
-                        # Get the current slide number and presentation_id
-                        cur.execute("""
-                            SELECT slide_number, presentation_id
-                            FROM slides
-                            WHERE slide_id = %s
-                        """, (slide_id,))
-                        current = cur.fetchone()
-                        if not current:
-                            return None
-                            
-                        # Update other slides to make room for the new position
-                        if current['slide_number'] < slide_number:
-                            cur.execute("""
-                                UPDATE slides
-                                SET slide_number = slide_number - 1
-                                WHERE presentation_id = %s 
-                                AND slide_number > %s 
-                                AND slide_number <= %s
-                            """, (current['presentation_id'], current['slide_number'], slide_number))
-                        elif current['slide_number'] > slide_number:
-                            cur.execute("""
-                                UPDATE slides
-                                SET slide_number = slide_number + 1
-                                WHERE presentation_id = %s 
-                                AND slide_number >= %s 
-                                AND slide_number < %s
-                            """, (current['presentation_id'], slide_number, current['slide_number']))
-                    
-                    # Update the slide
                     cur.execute(f"""
                         UPDATE slides 
                         SET {', '.join(update_fields)}
                         WHERE slide_id = %s
                         RETURNING slide_id, presentation_id, slide_number, background_color, 
-                                background_image_url, title, created_at, updated_at
+                                  background_image_url, title, created_at, updated_at, background_image_opacity, background_image_fit
                     """, params)
-                    
                     slide = cur.fetchone()
                     conn.commit()
                     return dict(slide) if slide else None
-                    
         except Exception as e:
             raise Exception(f"Error updating slide: {str(e)}")
 
