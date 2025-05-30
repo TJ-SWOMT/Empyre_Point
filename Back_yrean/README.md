@@ -1,84 +1,34 @@
 # Empyre Point Backend
 
-This is the backend service for Empyre Point, built with Flask and Socket.IO. It provides the API endpoints, real-time collaboration features, and database management for the presentation platform.
+This is the backend service for Empyre Point, built with Flask and Socket.IO. The service is hosted on AWS and provides the API endpoints, real-time collaboration features, and database management for the presentation platform.
 
-## Prerequisites
+## Current Status
 
-- Python 3.8 or higher
-- PostgreSQL client
-- AWS CLI (for S3 and RDS access)
-- Virtual environment tool (venv)
-
-## Setup Instructions
-
-1. Create and activate a Python virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+The backend is currently deployed and running on AWS at:
+```
+http://44.201.125.158:5001/api
 ```
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+All frontend applications are configured to use this global backend. No local setup is required to use the application.
 
-3. Environment Configuration:
-   - Create a `.env` file in the root directory
-   - Add the following environment variables:
-     ```
-     # Flask Configuration
-     SECRET_KEY=your_secret_key_here
-     FLASK_ENV=development
+## Architecture Overview
 
-     # Database Configuration (AWS RDS)
-     DB_USERNAME=EmpyrePointAdmin
-     DB_PASSWORD=your_password_here
-     DB_ENDPOINT=empyre-point.ckbeyci4yeyy.us-east-1.rds.amazonaws.com
-     DB_PORT=5432
-     DB_NAME=Empyre_Point_DB
-     DATABASE_URL=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_ENDPOINT}:${DB_PORT}/${DB_NAME}
+### AWS Infrastructure
+- **API Server**: AWS EC2 instance running Flask
+- **Database**: AWS RDS PostgreSQL
+- **Storage**: AWS S3 for media files
+- **Security**: AWS IAM for access management
 
-     # AWS Configuration
-     AWS_ACCESS_KEY_ID=your_access_key
-     AWS_SECRET_ACCESS_KEY=your_secret_key
-     AWS_REGION=us-east-1
-     S3_BUCKET_NAME=empyre-point-images
-     ```
+### Key Components
+- Flask REST API for slide management
+- WebSocket server for real-time updates
+- PostgreSQL database for data persistence
+- S3 integration for media storage
+- JWT-based authentication
 
-4. Database Setup:
-   - The application uses AWS RDS PostgreSQL
-   - Database migrations are managed through custom scripts
-   - To create a new migration:
-     ```bash
-     python create_migration.py "description_of_changes"
-     ```
-   - To apply migrations:
-     ```bash
-     python migrate.py
-     ```
+## API Documentation
 
-5. Run the development server:
-```bash
-python app.py
-```
-The server will start on `http://localhost:5000`
-
-## Project Structure
-
-```
-Back_yrean/
-├── app.py              # Main application file
-├── aws_config.py       # AWS configuration
-├── create_migration.py # Migration creation script
-├── migrate.py         # Migration application script
-├── requirements.txt   # Python dependencies
-├── migrations/        # Database migration files
-└── services/         # Business logic modules
-```
-
-## API Endpoints
-
-### REST API
+### REST Endpoints
 - `GET /api/slides` - List all slides
 - `POST /api/slides` - Create new slide
 - `GET /api/slides/<id>` - Get slide details
@@ -99,35 +49,58 @@ The database uses PostgreSQL with the following main tables:
 - `collaborations` - Collaboration sessions
 - `media` - Uploaded media files
 
-## AWS Integration
+## Development Information
 
-The backend uses AWS services for database and media storage. The configuration is managed through environment variables in the `.env` file:
+This section is for developers who need to work on the backend code.
 
-- RDS PostgreSQL for the database
-- S3 for media file storage
-- IAM credentials for AWS service access
+### Prerequisites
+- Python 3.8 or higher
+- PostgreSQL client
+- AWS CLI
+- Virtual environment tool (venv)
 
-For local development, the `.env` file is already configured with the necessary AWS credentials and endpoints. No additional AWS setup is required to run the application locally.
+### Local Development Setup
+1. Create and activate a Python virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
 
-## Security Considerations
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-1. Database Security:
-   - Use environment variables for credentials
-   - Implement proper connection pooling
-   - Regular security updates
+3. Environment Configuration:
+   The `.env` file contains the AWS configuration:
+   ```
+   # Database Configuration (AWS RDS)
+   DB_USERNAME=EmpyrePointAdmin
+   DB_PASSWORD=your_password_here
+   DB_ENDPOINT=empyre-point.ckbeyci4yeyy.us-east-1.rds.amazonaws.com
+   DB_PORT=5432
+   DB_NAME=Empyre_Point_DB
+   DATABASE_URL=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_ENDPOINT}:${DB_PORT}/${DB_NAME}
 
-2. API Security:
-   - CORS configuration
-   - Rate limiting
-   - Input validation
-   - Authentication middleware
+   # AWS Configuration
+   AWS_ACCESS_KEY_ID=your_access_key
+   AWS_SECRET_ACCESS_KEY=your_secret_key
+   AWS_REGION=us-east-1
+   S3_BUCKET_NAME=empyre-point-images
+   ```
 
-3. AWS Security:
-   - IAM roles and policies
-   - S3 bucket policies
-   - RDS security groups
+4. Database Migrations:
+   - Migrations are managed through custom scripts
+   - To create a new migration:
+     ```bash
+     python create_migration.py "description_of_changes"
+     ```
+   - To apply migrations:
+     ```bash
+     python migrate.py
+     ```
 
-## Testing
+### Testing
 
 ```bash
 # Run unit tests
@@ -137,13 +110,33 @@ pytest tests/
 pytest --cov=.
 ```
 
+## Security Considerations
+
+1. Database Security:
+   - AWS RDS with encrypted connections
+   - Environment variables for credentials
+   - Proper connection pooling
+   - Regular security updates
+
+2. API Security:
+   - CORS configuration for frontend access
+   - Rate limiting
+   - Input validation
+   - JWT authentication
+
+3. AWS Security:
+   - IAM roles and policies
+   - S3 bucket policies
+   - RDS security groups
+   - VPC configuration
+
 ## Deployment
 
-The backend is configured to deploy to AWS EC2:
-1. Set up EC2 instance
-2. Configure security groups
-3. Set up environment variables
-4. Use Gunicorn for production server
+The backend is deployed on AWS EC2:
+1. Uses Gunicorn as production server
+2. Configured with proper security groups
+3. Integrated with AWS RDS and S3
+4. Monitored with AWS CloudWatch
 
 ## Troubleshooting
 

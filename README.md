@@ -1,5 +1,27 @@
 # Empyre Point - Collaborative Presentation Platform
 
+## Project Context
+
+This project was developed as a coding test to create a stripped-down version of PowerPoint with markdown support. The goal was to demonstrate full-stack development skills while implementing a practical, real-world application.
+
+### Original Prompt
+
+Create a web app that is a stripped-down version of PowerPoint with the contents of the slides written using markdown.
+
+**Minimum Requirements:**
+- Move forward/backwards in the presentation
+- Parse and display markdown code
+
+**Additional Features Implemented:**
+- ✅ Editing and saving slides through an editor
+- ✅ Storing slides in a backend service (AWS RDS)
+- ✅ Highlighting/formatting code snippets
+- ✅ Supporting different slide layouts
+- ✅ Displaying a presentation progress bar
+- ✅ Implementing hotkeys support
+- ✅ Mobile-friendly design
+- ✅ Unit and integration tests
+
 ## Project Story
 
 Empyre Point is a modern, collaborative presentation platform that reimagines the traditional PowerPoint experience for the web. Born from the need for real-time collaboration and seamless sharing, this project combines the power of Vue.js and Flask to create an intuitive, cloud-based presentation tool.
@@ -26,7 +48,7 @@ The project is organized into two main components:
 ```
 Empyre_Point/
 ├── Front_yrean/     # Vue.js frontend application
-└── Back_yrean/      # Flask backend service
+└── Back_yrean/      # Flask backend service (AWS hosted)
 ```
 
 ## Quick Start
@@ -34,19 +56,42 @@ Empyre_Point/
 To get started with development:
 
 1. Clone the repository
-2. Set up the backend (see Back_yrean/README.md)
-3. Set up the frontend (see Front_yrean/README.md)
-4. Configure environment variables (if needed)
-5. Start both services
+2. Set up the frontend (see Front_yrean/README.md)
+3. Start the frontend development server
+
+**Note:** The backend is already deployed and running on AWS. You don't need to set up or run the backend locally. The frontend is configured to connect to the global backend automatically.
 
 ## Development Environment
 
 The project uses:
 - Vue 3 with Vite for the frontend
-- Flask with Socket.IO for the backend
+- Flask with Socket.IO for the backend (AWS hosted)
 - PostgreSQL on AWS RDS for the database
 - AWS S3 for media storage
 - WebSocket for real-time collaboration
+
+## Architecture & Design Decisions
+
+### Frontend
+- Vue 3 with Composition API for modern, maintainable code
+- Custom markdown parser for slide content
+- Minimal UI libraries to demonstrate raw implementation
+- Responsive design for all device sizes
+- Hotkey support for presentation navigation
+
+### Backend
+- Flask REST API for slide management
+- AWS RDS for persistent storage
+- AWS S3 for media file storage
+- WebSocket for real-time collaboration
+- JWT for authentication
+
+### Future Considerations
+- Real-time collaboration features
+- Slide templates and themes
+- Export to PDF/PPTX
+- User roles and permissions
+- Presentation analytics
 
 ## Contributing
 
