@@ -71,7 +71,10 @@ onMounted(loadPresentation)
           v-model="title"
           type="text"
           placeholder="Enter presentation title"
+          maxlength="32"
+          required
         />
+        <div class="char-count">{{ title.length }}/32 characters</div>
       </div>
 
       <div class="edit-presentation-form-group">
@@ -81,7 +84,9 @@ onMounted(loadPresentation)
           v-model="description"
           placeholder="Enter presentation description"
           rows="4"
+          maxlength="200"
         ></textarea>
+        <div class="char-count">{{ description.length }}/200 characters</div>
       </div>
 
       <div class="edit-presentation-modal-actions">

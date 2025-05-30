@@ -328,6 +328,21 @@ input[type="color"] {
   color: var(--text-color);
 }
 
+.element-content ul,
+.element-content ol {
+  list-style: initial !important;
+  margin-left: 2em !important;
+  padding-left: 0 !important;
+}
+
+.element-content li {
+  display: list-item !important;
+}
+
+.text-editor.editing textarea {
+  background: rgba(255,255,255,0.2) !important;
+}
+
 @media (max-width: 900px) {
   .page-actions {
     flex-direction: column;
