@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import logo from '../../assets/Empyre_Point_Logo.png'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 const router = useRouter()
 const error = ref('')
 const isSubmitting = ref(false)

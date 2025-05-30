@@ -5,7 +5,7 @@ import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
 import BackgroundImageModal from './BackgroundImageModal.vue'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +38,7 @@ function updateAvailableWidth () {
 
 const { scale, DESIGN_WIDTH, DESIGN_HEIGHT, calculateScale } = useSlideScale(
   availableHeight,
-  availableWidth
+  computed(() => window.innerWidth)
 )
 
 // Initialize background color from session storage, but use presentation-specific key
@@ -119,27 +119,51 @@ const integerZIndex = computed({
   }
 })
 
+// Add computed property for action buttons key
+const actionButtonsKey = computed(() => {
+  return `${isEditMode.value}-${slideId.value}-${totalSlides.value}-${newSlideNumber.value}-${isSubmitting.value}`
+})
+
 // Add new refs for background image settings
 const showBackgroundImageModal = ref(false)
 const backgroundImage = ref(null)
 const backgroundImageOpacity = ref(1)
 const backgroundImageFit = ref('cover')
 
+// Add new refs for temporary background image settings
+const tempBackgroundImage = ref(null)
+const tempBackgroundImageOpacity = ref(1)
+const tempBackgroundImageFit = ref('cover')
+
 // Add new refs for slide number
 const totalSlides = ref(0)
-const newSlideNumber = ref(1)
+const newSlideNumber = ref(null)
+
+// Add new refs for action bar state
+const isActionBarExpanded = ref(true)
+const actionBarHeight = ref(0)
+
+// Add new ref for styling controls state
+const isStylingExpanded = ref(true)
+
+// Add new ref for loading state
+const isLoading = ref(true)
 
 const loadSlideData = async () => {
-  if (!isEditMode.value) return
-
   try {
+    isLoading.value = true
     const response = await presentationApi.getPresentation(presentationId)
     if (response.error) throw new Error(response.error)
-
-    // Get total slides count
+    
     totalSlides.value = response.presentation.slides.length
 
-    // Convert slideId to number for comparison since it comes from route params
+    if (!isEditMode.value) {
+      newSlideNumber.value = totalSlides.value + 1
+      isLoading.value = false
+      return
+    }
+
+    // For edit mode, continue with existing logic
     const slide = response.presentation.slides.find(
       s => Number(s.slide_id) === Number(slideId.value)
     )
@@ -148,29 +172,85 @@ const loadSlideData = async () => {
         ...slide,
         slide_id: Number(slide.slide_id) // Ensure consistent type
       }
-      newSlideNumber.value = slide.slide_number // Initialize the new slide number
+      newSlideNumber.value = slide.slide_number // Set the current slide number for edit mode
       backgroundColor.value = slide.background_color || '#FFFFFF'
       slideTitle.value = slide.title || ''
+      
+      // Initialize both actual and temporary values
       backgroundImage.value = slide.background_image_url || null
       backgroundImageOpacity.value = slide.background_image_opacity || 1
       backgroundImageFit.value = slide.background_image_fit || 'cover'
+      
+      tempBackgroundImage.value = slide.background_image_url || null
+      tempBackgroundImageOpacity.value = slide.background_image_opacity || 1
+      tempBackgroundImageFit.value = slide.background_image_fit || 'cover'
     } else {
       throw new Error('Slide not found')
     }
   } catch (err) {
     error.value = handleApiError(err)
+  } finally {
+    isLoading.value = false
   }
 }
 
 const loadSlideElements = async () => {
-  if (!isEditMode.value) return
+  
+  if (!isEditMode.value) {
+    isLoading.value = false
+    return
+  }
 
   try {
+    isLoading.value = true
     const response = await presentationApi.getSlideElements(slideId.value)
     if (response.error) throw new Error(response.error)
     elements.value = response.elements || []
   } catch (err) {
     error.value = handleApiError(err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Helper to reorder slides after save
+async function reorderSlides(presentationId, movedSlideId, newNumber) {
+  // 1. Fetch all slides
+  const response = await presentationApi.getPresentation(presentationId)
+  if (!response.success) return
+
+  let slides = response.presentation.slides.sort((a, b) => a.slide_number - b.slide_number)
+
+  // 2. Remove the moved slide from the array (if it exists)
+  const movedSlideIndex = slides.findIndex(s => String(s.slide_id) === String(movedSlideId))
+  let movedSlide
+  if (movedSlideIndex !== -1) {
+    [movedSlide] = slides.splice(movedSlideIndex, 1)
+  } else {
+    // For new slides, fetch the slide data
+    const newSlideResp = await presentationApi.getPresentation(presentationId)
+    movedSlide = newSlideResp.presentation.slides.find(s => String(s.slide_id) === String(movedSlideId))
+  }
+  if (!movedSlide) return
+
+  // 3. Insert the moved slide at the new position (newNumber - 1)
+  slides.splice(newNumber - 1, 0, movedSlide)
+
+  // 4. Update slide_number for all slides
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i]
+    const correctNumber = i + 1
+    if (slide.slide_number !== correctNumber) {
+      await presentationApi.updateSlide(
+        slide.slide_id,
+        correctNumber,
+        slide.background_color,
+        slide.background_image_url,
+        slide.title,
+        slide.background_image_opacity,
+        slide.background_image_fit
+      )
+    }
   }
 }
 
@@ -179,15 +259,19 @@ const saveSlide = async (shouldRedirect = false) => {
     isSubmitting.value = true
     error.value = ''
 
+    // Update the actual background image values from temporary ones
+    backgroundImage.value = tempBackgroundImage.value
+    backgroundImageOpacity.value = tempBackgroundImageOpacity.value
+    backgroundImageFit.value = tempBackgroundImageFit.value
+
     let response
-    if (isEditMode.value) {
-      if (!slideData.value) {
-        throw new Error('Slide data not loaded')
-      }
-      // Update existing slide with new slide number if it changed
+    let wasNewSlide = false
+    let oldSlideNumber = slideData.value?.slide_number
+    if (isEditMode.value && !slideId.value.toString().startsWith('temp-')) {
+      // Update existing slide
       response = await presentationApi.updateSlide(
         Number(slideId.value),
-        newSlideNumber.value !== slideData.value.slide_number ? newSlideNumber.value : undefined,
+        newSlideNumber.value !== slideData.value?.slide_number ? newSlideNumber.value : undefined,
         backgroundColor.value,
         backgroundImage.value,
         slideTitle.value,
@@ -195,52 +279,104 @@ const saveSlide = async (shouldRedirect = false) => {
         backgroundImageFit.value
       )
     } else {
-      // Create new slide
+      // For new slides, get the total number of slides first
+      const presentationResponse = await presentationApi.getPresentation(presentationId)
+      if (presentationResponse.error) throw new Error(presentationResponse.error)
+      
+      // Calculate the new slide number (last slide number + 1)
+      const lastSlideNumber = presentationResponse.presentation.slides.length > 0 
+        ? Math.max(...presentationResponse.presentation.slides.map(s => s.slide_number))
+        : 0
+      const newSlideNumberToUse = newSlideNumber.value
+
+      // Create new slide with the chosen slide number
       response = await presentationApi.createSlide(
         presentationId,
-        1, // The backend will handle the slide number
+        newSlideNumberToUse,
         backgroundColor.value,
         backgroundImage.value,
         slideTitle.value,
         backgroundImageOpacity.value,
         backgroundImageFit.value
       )
+      wasNewSlide = true
     }
 
     if (response.error) {
       throw new Error(response.error)
     }
 
+    // If this was a new slide, update the slideId
+    if (!isEditMode.value || slideId.value.toString().startsWith('temp-')) {
+      slideId.value = response.slide.slide_id
+    }
+
     // Save all element positions, sizes, and styles
-    const updatePromises = elements.value.map(element => {
-      return updateElement(element.element_id, {
-        x_position: element.x_position,
-        y_position: element.y_position,
-        width: element.width,
-        height: element.height,
-        z_index: element.z_index,
-        font_family: element.element_data?.font_family,
-        font_size: element.element_data?.font_size,
-        font_color: element.element_data?.font_color,
-        bold: element.element_data?.bold,
-        italic: element.element_data?.italic,
-        underline: element.element_data?.underline,
-        text_align: element.element_data?.text_align,
-        content: element.element_data?.content
-      })
+    const updatePromises = elements.value.map(async element => {
+      // Skip temporary elements that haven't been saved yet
+      if (element.element_id.toString().startsWith('temp-')) {
+        // Create new element
+        if (element.element_type === 'text') {
+          const response = await presentationApi.createTextElement(slideId.value, {
+            content: element.element_data.content,
+            x_position: element.x_position,
+            y_position: element.y_position,
+            width: element.width,
+            height: element.height,
+            z_index: element.z_index,
+            font_family: element.element_data.font_family,
+            font_size: element.element_data.font_size,
+            font_color: element.element_data.font_color,
+            bold: element.element_data.bold,
+            italic: element.element_data.italic,
+            underline: element.element_data.underline,
+            text_align: element.element_data.text_align
+          })
+          if (response.error) throw new Error(response.error)
+          return response.element
+        } else if (element.element_type === 'image') {
+          const response = await presentationApi.createImageElement(slideId.value, {
+            image_url: element.element_data.image_url,
+            x_position: element.x_position,
+            y_position: element.y_position,
+            width: element.width,
+            height: element.height,
+            z_index: element.z_index
+          })
+          if (response.error) throw new Error(response.error)
+          return response.element
+        }
+      } else {
+        // Update existing element
+        return updateElement(element.element_id, {
+          x_position: element.x_position,
+          y_position: element.y_position,
+          width: element.width,
+          height: element.height,
+          z_index: element.z_index,
+          font_family: element.element_data?.font_family,
+          font_size: element.element_data?.font_size,
+          font_color: element.element_data?.font_color,
+          bold: element.element_data?.bold,
+          italic: element.element_data?.italic,
+          underline: element.element_data?.underline,
+          text_align: element.element_data?.text_align,
+          content: element.element_data?.content
+        })
+      }
     })
     await Promise.all(updatePromises)
+
+    // Reorder slides if needed (for both new and edit)
+    await reorderSlides(presentationId, slideId.value, newSlideNumber.value)
 
     // Only redirect if explicitly requested
     if (shouldRedirect) {
       router.push(`/presentations/${presentationId}`)
-    } else {
+    } else if (!isEditMode.value && response.slide) {
       // For new slides, just update the URL without redirecting
-      if (!isEditMode.value && response.slide) {
-        // Change the route to the new slide's edit URL to switch to edit mode
-        router.replace(`/presentations/${presentationId}/slides/${response.slide.slide_id}`)
-        return response
-      }
+      router.replace(`/presentations/${presentationId}/slides/${response.slide.slide_id}`)
+      return response
     }
   } catch (err) {
     error.value = handleApiError(err)
@@ -350,14 +486,9 @@ const addImage = async () => {
           throw new Error(uploadResponse.error)
         }
 
-        // For new slides, we need to save the slide first
-        if (!isEditMode.value) {
-          const response = await saveSlide(false) // Pass false to prevent redirect
-          if (!response) {
-            throw new Error('Failed to create slide')
-          }
-          // Update the slideId from the response
-          slideId.value = response.slide.slide_id
+        // For new slides, create a temporary slide ID if we don't have one
+        if (!isEditMode.value && !slideId.value) {
+          slideId.value = 'temp-' + Date.now()
         }
 
         // Calculate position to center the image
@@ -373,30 +504,51 @@ const addImage = async () => {
           z_index: elements.value.length || 0
         }
 
-        const response = await presentationApi.createImageElement(
-          slideId.value,
-          elementData
-        )
-        if (response.error) {
-          throw new Error(response.error)
-        }
-
-        // Add the new element to the elements array
-        elements.value.push({
-          element_id: response.element.element_id,
-          element_type: 'image',
-          x_position: xPos,
-          y_position: yPos,
-          width: finalWidth,
-          height: finalHeight,
-          z_index: elements.value.length || 0,
-          element_data: {
-            image_url: uploadResponse.image_url,
-            alt_text: '',
-            natural_width: img.width,
-            natural_height: img.height
+        // Only make API call if we're in edit mode
+        if (isEditMode.value && !slideId.value.toString().startsWith('temp-')) {
+          const response = await presentationApi.createImageElement(
+            slideId.value,
+            elementData
+          )
+          if (response.error) {
+            throw new Error(response.error)
           }
-        })
+
+          // Add the new element to the elements array
+          elements.value.push({
+            element_id: response.element.element_id,
+            element_type: 'image',
+            x_position: xPos,
+            y_position: yPos,
+            width: finalWidth,
+            height: finalHeight,
+            z_index: elements.value.length || 0,
+            element_data: {
+              image_url: uploadResponse.image_url,
+              alt_text: '',
+              natural_width: img.width,
+              natural_height: img.height
+            }
+          })
+        } else {
+          // For new slides or temporary slides, create element locally
+          const tempElementId = 'temp-' + Date.now()
+          elements.value.push({
+            element_id: tempElementId,
+            element_type: 'image',
+            x_position: xPos,
+            y_position: yPos,
+            width: finalWidth,
+            height: finalHeight,
+            z_index: elements.value.length || 0,
+            element_data: {
+              image_url: uploadResponse.image_url,
+              alt_text: '',
+              natural_width: img.width,
+              natural_height: img.height
+            }
+          })
+        }
 
         // Select the new element
         selectedElement.value = elements.value[elements.value.length - 1]
@@ -474,6 +626,12 @@ const updateElement = async (elementId, updates) => {
     const numericId = validateElementId(elementId)
     console.log('Updating element with ID:', numericId, 'Updates:', updates)
 
+    // Find the current element to get its type
+    const currentElement = elements.value.find(e => validateElementId(e.element_id) === numericId)
+    if (!currentElement) {
+      throw new Error('Element not found')
+    }
+
     // Ensure numeric values are integers
     const integerUpdates = Object.entries(updates).reduce(
       (acc, [key, value]) => {
@@ -489,7 +647,7 @@ const updateElement = async (elementId, updates) => {
     )
 
     const response = await presentationApi.updateElement(numericId, {
-      element_type: 'text',
+      element_type: currentElement.element_type, // Use the actual element type
       ...integerUpdates
     })
 
@@ -505,28 +663,32 @@ const updateElement = async (elementId, updates) => {
     // Create a new array to trigger reactivity
     const updatedElements = elements.value.map(e => {
       if (validateElementId(e.element_id) === numericId) {
-        // Extract element_data properties from the server response
-        const elementData = {
-          content: response.element.content,
-          font_family: response.element.font_family,
-          font_size: response.element.font_size,
-          font_color: response.element.font_color,
-          bold: response.element.bold,
-          italic: response.element.italic,
-          underline: response.element.underline,
-          text_align: response.element.text_align
-        }
-
-        // Create the updated element with the correct structure
+        // Create the updated element with the correct structure based on type
         const updatedElement = {
           element_id: numericId,
-          element_type: 'text',
+          element_type: currentElement.element_type,
           x_position: response.element.x_position,
           y_position: response.element.y_position,
           width: response.element.width,
           height: response.element.height,
           z_index: response.element.z_index,
-          element_data: elementData
+          element_data: currentElement.element_type === 'text' 
+            ? {
+                content: response.element.content,
+                font_family: response.element.font_family,
+                font_size: response.element.font_size,
+                font_color: response.element.font_color,
+                bold: response.element.bold,
+                italic: response.element.italic,
+                underline: response.element.underline,
+                text_align: response.element.text_align
+              }
+            : {
+                image_url: response.element.image_url,
+                alt_text: response.element.alt_text,
+                natural_width: e.element_data?.natural_width,
+                natural_height: e.element_data?.natural_height
+              }
         }
 
         console.log('Updated element:', JSON.stringify(updatedElement, null, 2))
@@ -569,105 +731,193 @@ const updateElement = async (elementId, updates) => {
 // Update createTextElement to pass false for shouldRedirect
 const createTextElement = async (x, y) => {
   try {
-    // For new slides, we need to save the slide first
-    if (!isEditMode.value) {
-      const response = await saveSlide(false)
-      if (!response) {
-        throw new Error('Failed to create slide')
+    // For new slides, create a temporary element first
+    if (!isEditMode.value || slideId.value.toString().startsWith('temp-')) {
+      const tempElementId = 'temp-' + Date.now()
+      const xPos = Math.round(Number(x) || 0)
+      const yPos = Math.round(Number(y) || 0)
+
+      const defaultElementData = {
+        content: 'New Text',
+        font_family: 'Arial',
+        font_size: 18,
+        font_color: '#000000',
+        bold: false,
+        italic: false,
+        underline: false,
+        text_align: 'left'
       }
-      slideId.value = response.slide.slide_id
-    }
 
-    const xPos = Math.round(Number(x) || 0)
-    const yPos = Math.round(Number(y) || 0)
+      // Create temporary element
+      const tempElement = {
+        element_id: tempElementId,
+        element_type: 'text',
+        x_position: xPos,
+        y_position: yPos,
+        width: 200,
+        height: 100,
+        z_index: elements.value.length || 0,
+        element_data: defaultElementData
+      }
 
-    const defaultElementData = {
-      content: 'New Text',
-      font_family: 'Arial',
-      font_size: 18,
-      font_color: '#000000',
-      bold: false,
-      italic: false,
-      underline: false,
-      text_align: 'left'
-    }
+      // Add to elements array
+      elements.value.push(tempElement)
+      selectedElement.value = tempElement
 
-    const elementData = {
-      content: defaultElementData.content,
-      x_position: xPos,
-      y_position: yPos,
-      width: 200,
-      height: 100,
-      font_family: defaultElementData.font_family,
-      font_size: defaultElementData.font_size,
-      font_color: defaultElementData.font_color,
-      bold: defaultElementData.bold,
-      italic: defaultElementData.italic,
-      underline: defaultElementData.underline,
-      text_align: defaultElementData.text_align,
-      z_index: elements.value.length || 0
-    }
+      // Start editing immediately
+      nextTick(() => {
+        isEditing.value = true
+        editingContent.value = defaultElementData.content
 
-    const response = await presentationApi.createTextElement(
-      slideId.value,
-      elementData
-    )
+        // Use a small delay to ensure the textarea is fully rendered
+        setTimeout(() => {
+          const textarea = document.querySelector('.text-element.editing textarea')
+          if (textarea) {
+            textarea.focus()
+            textarea.setSelectionRange(0, textarea.value.length)
+            textarea.style.opacity = '1'
+            textarea.style.background = 'rgba(255,255,255,0.95)'
+          }
+        }, 50)
+      })
 
-    if (response.error) {
-      throw new Error(response.error)
-    }
+      // Save the slide first if we haven't already
+      if (!slideId.value || slideId.value.toString().startsWith('temp-')) {
+        const saveResponse = await saveSlide(false)
+        if (!saveResponse) {
+          // If save fails, remove the temporary element
+          elements.value = elements.value.filter(e => e.element_id !== tempElementId)
+          selectedElement.value = null
+          throw new Error('Failed to save slide before adding element')
+        }
+        // Update slideId with the new ID from the save response
+        slideId.value = saveResponse.slide.slide_id
 
-    if (!response.element) {
-      throw new Error('Invalid API response: missing element data')
-    }
+        // Now create the actual element
+        const response = await presentationApi.createTextElement(slideId.value, {
+          content: defaultElementData.content,
+          x_position: xPos,
+          y_position: yPos,
+          width: 200,
+          height: 100,
+          z_index: elements.value.length || 0,
+          font_family: defaultElementData.font_family,
+          font_size: defaultElementData.font_size,
+          font_color: defaultElementData.font_color,
+          bold: defaultElementData.bold,
+          italic: defaultElementData.italic,
+          underline: defaultElementData.underline,
+          text_align: defaultElementData.text_align
+        })
 
-    const elementId = validateElementId(response.element.element_id)
+        if (response.error) {
+          throw new Error(response.error)
+        }
 
-    const newElement = {
-      element_id: elementId,
-      element_type: 'text',
-      x_position: Math.round(Number(response.element.x_position ?? xPos)),
-      y_position: Math.round(Number(response.element.y_position ?? yPos)),
-      width: Math.round(Number(response.element.width ?? 200)),
-      height: Math.round(Number(response.element.height ?? 100)),
-      z_index: Math.round(
-        Number(response.element.z_index ?? elements.value.length)
-      ),
-      element_data: {
-        content: defaultElementData.content, // Ensure we use the default content
+        // Replace temporary element with real one
+        const elementId = validateElementId(response.element.element_id)
+        const newElement = {
+          element_id: elementId,
+          element_type: 'text',
+          x_position: Math.round(Number(response.element.x_position ?? xPos)),
+          y_position: Math.round(Number(response.element.y_position ?? yPos)),
+          width: Math.round(Number(response.element.width ?? 200)),
+          height: Math.round(Number(response.element.height ?? 100)),
+          z_index: Math.round(Number(response.element.z_index ?? elements.value.length)),
+          element_data: {
+            content: defaultElementData.content,
+            font_family: defaultElementData.font_family,
+            font_size: Math.round(Number(defaultElementData.font_size)),
+            font_color: defaultElementData.font_color,
+            bold: defaultElementData.bold,
+            italic: defaultElementData.italic,
+            underline: defaultElementData.underline,
+            text_align: defaultElementData.text_align
+          }
+        }
+
+        // Replace the temporary element with the real one
+        elements.value = elements.value.map(e => 
+          e.element_id === tempElementId ? newElement : e
+        )
+        selectedElement.value = newElement
+      }
+    } else {
+      // For existing slides, create element directly
+      const xPos = Math.round(Number(x) || 0)
+      const yPos = Math.round(Number(y) || 0)
+
+      const defaultElementData = {
+        content: 'New Text',
+        font_family: 'Arial',
+        font_size: 18,
+        font_color: '#000000',
+        bold: false,
+        italic: false,
+        underline: false,
+        text_align: 'left'
+      }
+
+      const response = await presentationApi.createTextElement(slideId.value, {
+        content: defaultElementData.content,
+        x_position: xPos,
+        y_position: yPos,
+        width: 200,
+        height: 100,
+        z_index: elements.value.length || 0,
         font_family: defaultElementData.font_family,
-        font_size: Math.round(Number(defaultElementData.font_size)),
+        font_size: defaultElementData.font_size,
         font_color: defaultElementData.font_color,
         bold: defaultElementData.bold,
         italic: defaultElementData.italic,
         underline: defaultElementData.underline,
         text_align: defaultElementData.text_align
+      })
+
+      if (response.error) {
+        throw new Error(response.error)
       }
-    }
 
-    elements.value.push(newElement)
-    selectedElement.value = newElement
-
-    // Immediately start editing the new element with text selection
-    nextTick(() => {
-      isEditing.value = true
-      editingContent.value = defaultElementData.content
-
-      // Use a small delay to ensure the textarea is fully rendered
-      setTimeout(() => {
-        const textarea = document.querySelector(
-          '.text-element.editing textarea'
-        )
-        if (textarea) {
-          textarea.focus()
-          // Select all text
-          textarea.setSelectionRange(0, textarea.value.length)
-          // Ensure the textarea is visible and focused
-          textarea.style.opacity = '1'
-          textarea.style.background = 'rgba(255,255,255,0.95)'
+      const elementId = validateElementId(response.element.element_id)
+      const newElement = {
+        element_id: elementId,
+        element_type: 'text',
+        x_position: Math.round(Number(response.element.x_position ?? xPos)),
+        y_position: Math.round(Number(response.element.y_position ?? yPos)),
+        width: Math.round(Number(response.element.width ?? 200)),
+        height: Math.round(Number(response.element.height ?? 100)),
+        z_index: Math.round(Number(response.element.z_index ?? elements.value.length)),
+        element_data: {
+          content: defaultElementData.content,
+          font_family: defaultElementData.font_family,
+          font_size: Math.round(Number(defaultElementData.font_size)),
+          font_color: defaultElementData.font_color,
+          bold: defaultElementData.bold,
+          italic: defaultElementData.italic,
+          underline: defaultElementData.underline,
+          text_align: defaultElementData.text_align
         }
-      }, 50) // Small delay to ensure DOM is ready
-    })
+      }
+
+      elements.value.push(newElement)
+      selectedElement.value = newElement
+
+      // Start editing
+      nextTick(() => {
+        isEditing.value = true
+        editingContent.value = defaultElementData.content
+
+        setTimeout(() => {
+          const textarea = document.querySelector('.text-element.editing textarea')
+          if (textarea) {
+            textarea.focus()
+            textarea.setSelectionRange(0, textarea.value.length)
+            textarea.style.opacity = '1'
+            textarea.style.background = 'rgba(255,255,255,0.95)'
+          }
+        }, 50)
+      })
+    }
   } catch (err) {
     error.value = handleApiError(err)
     console.error('Error creating text element:', err)
@@ -879,23 +1129,31 @@ const handleSlideClick = event => {
   }
 }
 
-function updateAvailableHeight () {
-  // Use nextTick to ensure DOM is updated
+// Add function to toggle action bar
+const toggleActionBar = () => {
+  isActionBarExpanded.value = !isActionBarExpanded.value
+  // Update available height after toggle
+  nextTick(() => {
+    updateAvailableHeight()
+  })
+}
+
+// Modify updateAvailableHeight to account for action bar state
+function updateAvailableHeight() {
   nextTick(() => {
     const headerH = headerRef.value?.getBoundingClientRect().height || 0
-    const controlsH = controlsRef.value?.getBoundingClientRect().height || 0
+    const controlsH = isActionBarExpanded.value ? 
+      (headerRef.value?.querySelector('.action-bar-content')?.getBoundingClientRect().height || 0) : 
+      (headerRef.value?.querySelector('.action-bar-toggle')?.getBoundingClientRect().height || 0)
     const actionsH = actionButtonsRef.value?.getBoundingClientRect().height || 0
-    const margin = 16 // reduced for tighter fit
-    const newHeight =
-      window.innerHeight - (headerH + controlsH + actionsH + margin)
+    const margin = 16
+    const newHeight = window.innerHeight - (headerH + controlsH + actionsH + margin)
 
-    // Only update if we have a valid height
     if (newHeight > 0) {
       availableHeight.value = newHeight
       calculateScale()
     } else {
       console.warn('Invalid height calculated:', newHeight)
-      // Use a fallback height if calculation fails
       availableHeight.value = 600
       calculateScale()
     }
@@ -903,15 +1161,21 @@ function updateAvailableHeight () {
   })
 }
 
-onMounted(async () => {
-  // Wait for next tick to ensure refs are available
-  await nextTick()
-
-  if (isEditMode.value) {
-    await loadSlideData()
-    await loadSlideElements()
+// Move cleanup functions outside of onMounted
+const cleanup = () => {
+  document.removeEventListener('mousedown', handleClickAway)
+  document.removeEventListener('mousedown', handleClickOutside)
+  window.removeEventListener('resize', updateAvailableHeight)
+  if (actionBarObserver.value) {
+    actionBarObserver.value.disconnect()
   }
+}
 
+// Add ref for the observer
+const actionBarObserver = ref(null)
+
+onMounted(() => {
+  // Set up initial state
   box.value = document.querySelector('.slide-container')
   pageX.value = document.getElementById('x')
   pageY.value = document.getElementById('y')
@@ -932,21 +1196,30 @@ onMounted(async () => {
   document.addEventListener('mousedown', handleClickAway)
   document.addEventListener('mousedown', handleClickOutside)
 
-  // Initial height and width calculation
+  // Initial height calculation
   updateAvailableHeight()
-  updateAvailableWidth()
 
   // Add resize listener
   window.addEventListener('resize', updateAvailableHeight)
-  window.addEventListener('resize', updateAvailableWidth)
+
+  // Add resize observer for action bar
+  actionBarObserver.value = new ResizeObserver(() => {
+    updateAvailableHeight()
+  })
+  
+  if (headerRef.value) {
+    actionBarObserver.value.observe(headerRef.value)
+  }
+
+  // Remove optimistic set for new slides
+  loadSlideData()
+  if (isEditMode.value) {
+    loadSlideElements()
+  }
 })
 
-onUnmounted(() => {
-  document.removeEventListener('mousedown', handleClickAway)
-  document.removeEventListener('mousedown', handleClickOutside)
-  window.removeEventListener('resize', updateAvailableHeight)
-  window.removeEventListener('resize', updateAvailableWidth)
-})
+// Register cleanup
+onUnmounted(cleanup)
 
 // Add a watch to ensure scale is always valid
 watch(
@@ -970,79 +1243,99 @@ const handleDoubleClick = (element, event) => {
 
 // Add handlers for background image modal
 const handleBackgroundImageUpdate = (settings) => {
-  backgroundImage.value = settings.image_url
-  backgroundImageOpacity.value = settings.opacity
-  backgroundImageFit.value = settings.fit
-  saveSlide(false)
+  // Only update temporary values
+  tempBackgroundImage.value = settings.image_url
+  tempBackgroundImageOpacity.value = settings.opacity
+  tempBackgroundImageFit.value = settings.fit
 }
 
 const handleBackgroundImageRemove = () => {
-  backgroundImage.value = null
-  backgroundImageOpacity.value = 1
-  backgroundImageFit.value = 'cover'
-  saveSlide(false)
+  // Only update temporary values
+  tempBackgroundImage.value = null
+  tempBackgroundImageOpacity.value = 1
+  tempBackgroundImageFit.value = 'cover'
+}
+
+// Add function to toggle styling controls
+const toggleStyling = () => {
+  isStylingExpanded.value = !isStylingExpanded.value
 }
 </script>
 
 <template>
-  <div class="editor-root">
-    <!-- <div class="header-container" ref="headerRef"> -->
-    <div class="create-presentation-header">
-      <div class="create-presentation-title">
+  <div class="page-content-wrapper">
+    <div class="page-header">
+      <div class="page-header-text">
         {{ isEditMode ? 'Edit Slide' : 'Create Slide' }}
       </div>
     </div>
 
-    <div class="slide-actions" ref="headerRef">
-      <div class="slide-controls-container">
-        <!-- <div class="controls" ref="controlsRef"> -->
-        <button
-          @click="addText"
-          :class="{ active: isAddingText }"
-          title="Click to add text, then click on the slide where you want the text to appear"
-        >
-          Add Text
-        </button>
-        <button @click="addImage">Add Image</button>
-
-        <button
-          @click.stop="deleteSlide($event)"
-          class="btn btn-danger delete-slide-button"
-        >
-          {{ !slideSureness ? 'Delete Slide' : 'Click again to delete' }}
-        </button>
-        <!-- </div> -->
-      </div>
-      <div class="slide-background-edit-actions">
-        <div class="color-picker">
-          <label for="backgroundColor">Background Color:</label>
-          <input
-            type="color"
-            id="backgroundColor"
-            v-model="backgroundColor"
-            title="Choose slide background color"
-          />
+    <div class="page-actions" ref="headerRef">
+      <div class="action-bar-container">
+        <div class="action-bar-content">
+          <div class="slide-controls-container">
+            <button
+              @click="addText"
+              :class="{ active: isAddingText }"
+              title="Click to add text, then click on the slide where you want the text to appear"
+            >
+              Add Text
+            </button>
+            <button @click="addImage">Add Image</button>
+            <button
+              @click.stop="deleteSlide($event)"
+              class="btn btn-danger delete-slide-button"
+            >
+              {{ !slideSureness ? 'Delete Slide' : 'Click again to delete' }}
+            </button>
+          </div>
+          <div class="slide-background-edit-actions">
+            <div class="color-picker">
+              <label for="backgroundColor">Background Color:</label>
+              <input
+                type="color"
+                id="backgroundColor"
+                v-model="backgroundColor"
+                title="Choose slide background color"
+              />
+            </div>
+            <button @click="showBackgroundImageModal = true">Set Background Image</button>
+          </div>
+          <div class="slide-title-container">
+            <label for="slideTitle">Slide Title:</label>
+            <input type="text" v-model="slideTitle" placeholder="Slide Title" />
+          </div>
         </div>
-        <button @click="showBackgroundImageModal = true">Set Background Image</button>
-      </div>
-      <div class="slide-title-container">
-        <label for="slideTitle">Slide Title:</label>
-        <input type="text" v-model="slideTitle" placeholder="Slide Title" />
+        <button 
+          class="action-bar-toggle"
+          @click="toggleActionBar"
+          :class="{ 'is-active': isActionBarExpanded }"
+          aria-label="Toggle action bar"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </div>
     </div>
 
     <div v-if="error" class="error-message">{{ error }}</div>
 
-    <div class="center-flex" ref="centerFlexRef">
+    <div class="slide-editor-content">
+      <div v-if="isLoading" class="loading-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading slide...</div>
+      </div>
       <div
+        v-else
         class="slide-scale-wrapper"
         :style="{
-          width: '100vw',
+          width: '100%',
           height: availableHeight + 'px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'auto'
+          overflow: 'hidden'
         }"
       >
         <div
@@ -1059,14 +1352,14 @@ const handleBackgroundImageRemove = () => {
         >
           <!-- Add background image layer -->
           <div
-            v-if="backgroundImage"
+            v-if="tempBackgroundImage"
             class="background-image-layer"
             :style="{
-              backgroundImage: `url(${backgroundImage})`,
-              backgroundSize: backgroundImageFit === 'stretch' ? '100% 100%' : backgroundImageFit,
+              backgroundImage: `url(${tempBackgroundImage})`,
+              backgroundSize: tempBackgroundImageFit === 'stretch' ? '100% 100%' : tempBackgroundImageFit,
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
-              opacity: backgroundImageOpacity,
+              opacity: tempBackgroundImageOpacity,
               position: 'absolute',
               top: 0,
               left: 0,
@@ -1230,20 +1523,25 @@ const handleBackgroundImageRemove = () => {
             </div>
           </div>
         </div>
-        <div class="action-buttons centered-under-slide">
+        <div class="action-buttons centered-under-slide" :key="actionButtonsKey">
           <div class="slide-number-input">
             <label for="slideNumber">Slide Number:</label>
             <div class="slide-number-wrapper">
-              <input
-                id="slideNumber"
-                type="number"
-                v-model.number="newSlideNumber"
-                :min="1"
-                :max="totalSlides"
-                step="1"
-                :disabled="!isEditMode"
-              />
-              <span class="slide-number-total">of {{ totalSlides }}</span>
+              <template v-if="!isLoading && newSlideNumber !== null">
+                <input
+                  id="slideNumber"
+                  type="number"
+                  v-model.number="newSlideNumber"
+                  :min="1"
+                  :max="isEditMode ? totalSlides : totalSlides + 1"
+                  step="1"
+                />
+                <span class="slide-number-total">of {{ isEditMode ? totalSlides : totalSlides + 1 }}</span>
+              </template>
+              <template v-else>
+                <div style="width: 100px; height: 44px; background: #eee; border-radius: 8px; display: inline-block; animation: pulse 1.2s infinite; margin-right: 8px;"></div>
+                <span class="slide-number-total">of ...</span>
+              </template>
             </div>
           </div>
           <button
@@ -1253,6 +1551,7 @@ const handleBackgroundImageRemove = () => {
             Cancel
           </button>
           <button
+       
             @click="saveSlide(false)"
             :disabled="isSubmitting"
             class="save-button"
@@ -1277,9 +1576,22 @@ const handleBackgroundImageRemove = () => {
     </div>
 
     <!-- Element Styling Controls -->
-    <div v-if="selectedElement" class="element-styling">
+    <div 
+      v-if="selectedElement" 
+      class="element-styling"
+      :class="{ 'is-expanded': isStylingExpanded }"
+    >
+      <button 
+        class="styling-toggle"
+        @click="toggleStyling"
+        :class="{ 'is-active': isStylingExpanded }"
+        aria-label="Toggle styling controls"
+      >
+        <span>Style</span>
+        <span class="toggle-icon"></span>
+      </button>
       <div class="styling-controls">
-        <div class="control-group">
+        <div v-if="selectedElement.element_type === 'text'" class="control-group">
           <label for="font-family">Font:</label>
           <select
             id="font-family"
@@ -1295,7 +1607,7 @@ const handleBackgroundImageRemove = () => {
             <option value="Courier New">Courier New</option>
           </select>
         </div>
-        <div class="control-group">
+        <div v-if="selectedElement.element_type === 'text'" class="control-group">
           <label for="font-size">Size:</label>
           <input
             id="font-size"
@@ -1311,7 +1623,7 @@ const handleBackgroundImageRemove = () => {
             step="1"
           />
         </div>
-        <div class="control-group">
+        <div v-if="selectedElement.element_type === 'text'" class="control-group">
           <label for="font-color">Color:</label>
           <input
             id="font-color"
@@ -1324,7 +1636,7 @@ const handleBackgroundImageRemove = () => {
             "
           />
         </div>
-        <div class="control-group">
+        <!-- <div class="control-group">
           <label for="text-align">Align:</label>
           <select
             id="text-align"
@@ -1339,7 +1651,7 @@ const handleBackgroundImageRemove = () => {
             <option value="center">Center</option>
             <option value="right">Right</option>
           </select>
-        </div>
+        </div> -->
         <div class="control-group">
           <label for="x-position">X:</label>
           <input
@@ -1429,157 +1741,56 @@ const handleBackgroundImageRemove = () => {
 </template>
 
 <style scoped>
-.text-editor {
+/* All styles moved to empyre-point.css */
+
+/* Update loading styles */
+.slide-editor-content {
+  flex: 1;
   width: 100%;
-  height: 100%;
-  min-height: 30px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  overflow: hidden;
-  word-break: break-word;
-  line-height: 1.2;
-  padding: 2px;
-  box-sizing: border-box;
-  cursor: text;
+  min-height: 0;
+  position: relative;
 }
 
-.text-editor:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.text-editor.editing {
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid #28a745;
-  border-radius: 4px;
-}
-
-.text-editor.new-element textarea {
-  background: rgba(255, 255, 255, 0.95) !important;
-}
-
-.text-editor textarea {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 30px;
-  padding: 5px;
-  box-sizing: border-box;
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  cursor: text;
-}
-
-/* Ensure the textarea is immediately visible when editing */
-.text-editor.editing textarea {
-  opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.95) !important;
-}
-
-.save-and-return-button {
-  background-color: var(--secondary-color);
-  color: var(--white);
-  border: var(--button-border);
-  padding: clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 3vw, 1rem);
-  border-radius: var(--border-radius);
-  cursor: pointer;
-  font-size: clamp(0.875rem, 3.5vw, 1rem);
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  min-height: 44px;
-}
-
-.save-and-return-button:hover {
-  background-color: var(--secondary-hover);
-  box-shadow: var(--shadow-lg);
-}
-
-.save-and-return-button:disabled {
-  background-color: var(--text-light);
-  cursor: not-allowed;
-}
-
-@media (max-width: 600px) {
-  .action-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .save-button,
-  .save-and-return-button,
-  .cancel-button {
-    width: 96vw;
-    max-width: 240px;
-    font-size: 14px;
-    padding: 9px 0;
-  }
-}
-
-.background-image-layer {
-  pointer-events: none; /* Allow clicks to pass through to elements */
-}
-
-.slide-number-input {
+.loading-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--spacing-sm);
-  background-color: rgba(255, 255, 255, 0.1);
-  padding: var(--spacing-xs) var(--spacing-md);
-  border-radius: var(--border-radius);
+  justify-content: center;
+  gap: var(--spacing-md);
 }
 
-.slide-number-input label {
-  color: var(--white);
-  font-size: clamp(0.875rem, 2vw, 1rem);
-  white-space: nowrap;
-}
-
-.slide-number-wrapper {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.slide-number-input input {
+.loading-spinner {
   width: 50px;
-  background-color: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border-color);
-  color: var(--text-color);
-  text-align: center;
+  height: 50px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
 
-.slide-number-total {
+.loading-text {
   color: var(--white);
-  font-size: clamp(0.875rem, 2vw, 1rem);
-  white-space: nowrap;
+  font-size: 1.1rem;
+  font-weight: 500;
 }
 
-.slide-number-input input:disabled {
-  background-color: rgba(255, 255, 255, 0.5);
-  cursor: not-allowed;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-@media (max-width: 600px) {
-  .slide-number-input {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
-  }
-
-  .slide-number-wrapper {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .slide-number-input input {
-    width: 40px;
-  }
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
 }
 </style>

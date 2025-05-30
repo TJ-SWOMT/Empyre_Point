@@ -63,12 +63,8 @@ const handleFileSelect = async (event) => {
       throw new Error(uploadResponse.error)
     }
 
+    // Just update the preview URL, don't emit update
     previewUrl.value = uploadResponse.image_url
-    emit('update', {
-      image_url: uploadResponse.image_url,
-      opacity: opacity.value,
-      fit: fit.value
-    })
   } catch (err) {
     error.value = handleApiError(err)
     console.error('Error uploading image:', err)
@@ -81,27 +77,23 @@ const handleFileSelect = async (event) => {
 }
 
 const handleOpacityChange = () => {
-  emit('update', {
-    image_url: previewUrl.value,
-    opacity: opacity.value,
-    fit: fit.value
-  })
+  // Just update the preview, don't emit update
+  // The changes will be applied when OK is clicked
 }
 
 const handleFitChange = () => {
-  emit('update', {
-    image_url: previewUrl.value,
-    opacity: opacity.value,
-    fit: fit.value
-  })
+  // Just update the preview, don't emit update
+  // The changes will be applied when OK is clicked
 }
 
 const handleRemove = () => {
   previewUrl.value = null
-  emit('remove')
+  // Don't emit remove, just update preview
+  // The changes will be applied when OK is clicked
 }
 
 const handleClose = () => {
+  // Reset to original values
   previewUrl.value = props.currentImage
   opacity.value = props.currentOpacity
   fit.value = props.currentFit
@@ -109,6 +101,16 @@ const handleClose = () => {
 }
 
 const handleOk = () => {
+  // Only emit the final state when OK is clicked
+  if (previewUrl.value) {
+    emit('update', {
+      image_url: previewUrl.value,
+      opacity: opacity.value,
+      fit: fit.value
+    })
+  } else {
+    emit('remove')
+  }
   emit('close')
 }
 

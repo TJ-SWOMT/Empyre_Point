@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, nextTick, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -152,14 +152,18 @@ onMounted(fetchSlides)
 </script>
 
 <template>
-  <div class="slides-viewport">
-    <div class="slides-scroll">
+
+    <!-- Optional: Add a .page-header here if you want a sticky title bar for slides -->
+    <!-- <div class="page-header">
+      <div class="page-header-text">Slides</div>
+    </div> -->
+    <div class="view-area-container">
       <div v-if="error" class="error-message">{{ error }}</div>
       <div v-if="isLoading" class="loading">Loading slides...</div>
       <div v-else-if="!slides || slides.length === 0" class="no-slides">
         <p>No slides for this presentation.</p>
       </div>
-      <div v-else :class="['slides-grid', slidesGridClass]" ref="slidesGrid">
+      <div class="slides-grid" ref="slidesGrid">
         <template v-for="(slide, index) in slides" :key="slide.slide_id">
           <div v-if="slide && slide.slide_id" 
                class="slide-thumbnail"
@@ -218,76 +222,5 @@ onMounted(fetchSlides)
         </template>
       </div>
     </div>
-  </div>
+  <!-- </div> -->
 </template>
-
-<style scoped>
-.thumbnail {
-  width: clamp(160px, 40vw, 320px);
-  height: clamp(90px, 22.5vw, 180px);
-  position: relative;
-  border: 1px solid var(--border-color);
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  background-color: var(--white);
-  box-shadow: var(--shadow);
-  flex-shrink: 0;
-}
-.thumbnail-content {
-  /* All positioning and scaling is now inline style for centering and scaling */
-}
-.slide-thumbnail:hover {
-  transform: scale(1.5);
-  z-index: 2;
-}
-.thumbnail-text-elements {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  opacity: 1;
-  transition: none;
-}
-.thumbnail-text-element {
-  position: absolute;
-  font-size: 16px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: #000;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 2px;
-  box-sizing: border-box;
-  transform-origin: top left;
-  border-radius: 2px;
-}
-.thumbnail-image-block {
-  position: absolute;
-  border: 1px dashed #666;
-  background: rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform-origin: top left;
-  border-radius: 2px;
-  overflow: hidden;
-}
-.thumbnail-image-block img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-}
-.background-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  z-index: 0;
-}
-</style>

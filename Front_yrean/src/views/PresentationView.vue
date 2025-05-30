@@ -5,7 +5,7 @@ import { presentationApi, handleApiError } from '../services/api'
 import PresentationSlidesView from './PresentationSlidesView.vue'
 import { useRouter } from 'vue-router'
 
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 const route = useRoute()
 const presentationId = route.params.id
@@ -67,13 +67,13 @@ onMounted(checkForSlides)
 </script>
 
 <template>
-  <div class="presentation-container">
-    <div class="create-presentation-header">
-      <div class="create-presentation-title" v-if=presentationTitle>{{ presentationTitle }}</div>
-      <div class="create-presentation-title" v-else>Your Presentation</div>
+  <div class="page-content-wrapper">
+    <div class="page-header">
+      <div class="page-header-text" v-if="presentationTitle">{{ presentationTitle }}</div>
+      <div class="page-header-text" v-else>Your Presentation</div>
       <div v-if="error" class="error-message">{{ error }}</div>
     </div>
-    <div class="presentation-actions">
+    <div class="page-actions">
       <button @click="addSlide">Add Slide</button>
       <button @click="editPresentation">Edit Presentation</button>
       <button 
@@ -83,10 +83,14 @@ onMounted(checkForSlides)
       >
         Play Presentation
       </button>
-      <div v-if=presentationDescription class="presentation-description">{{ presentationDescription }}</div>
+      <div v-if="presentationDescription" class="presentation-description">{{ presentationDescription }}</div>
     </div>
-    <div class="slides-container">
-      <PresentationSlidesView />
-    </div>
+  
+
+        <PresentationSlidesView />
+
+
   </div>
 </template>
+
+

@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 const router = useRouter()
 const presentations = ref([])
@@ -91,71 +91,77 @@ onMounted(fetchPresentations)
 </script>
 
 <template>
-  <div class="container">
-    <div class="header_user_presentations">
-      <div class="header_user_presentations_text">
+  <div class="page-content-wrapper">
+    <div class="page-header">
+      <div class="page-header-text">
         {{ username }}'s Presentations
       </div>
     </div>
+    <div class="view-area-container">
+      <div v-if="error" class="error-message">
+        {{ error }}
+      </div>
 
-    <div v-if="error" class="error-message">
-      {{ error }}
-    </div>
+      <div v-if="isLoading" class="loading">Loading presentations...</div>
 
-    <div v-if="isLoading" class="loading">Loading presentations...</div>
+      <div v-else-if="presentations.length === 0" class="no-presentations">
+        <p>You haven't created any presentations yet.</p>
+        <button @click="createNewPresentation" class="btn btn-secondary">
+          Create Your First Presentation
+        </button>
+      </div>
 
-    <div v-else-if="presentations.length === 0" class="no-presentations">
-      <p>You haven't created any presentations yet.</p>
-      <button @click="createNewPresentation" class="btn btn-secondary">
-        Create Your First Presentation
-      </button>
-    </div>
-
-    <div v-else class="presentations-grid">
-      <div
-        v-for="presentation in presentations"
-        :key="presentation.presentation_id"
-        class="presentation-card"
-      >
-        <h3>{{ presentation.title }}</h3>
-        <div class="description-container">
-          <p v-if="presentation.description" class="truncated-description">
-            {{ presentation.description }}
-          </p>
-          <div v-if="presentation.description" class="tooltip">
-            {{ presentation.description }}
+      <div v-else class="presentations-grid">
+        <div
+          v-for="presentation in presentations"
+          :key="presentation.presentation_id"
+          class="presentation-card"
+        >
+          <div class="presentation-card-content">
+            <h3>{{ presentation.title }}</h3>
+            <div class="description-container">
+              <p v-if="presentation.description" class="truncated-description">
+                {{ presentation.description }}
+              </p>
+              <div v-if="presentation.description" class="tooltip">
+                {{ presentation.description }}
+              </div>
+            </div>
+            <div class="presentation-meta">
+              <span
+                >Created:
+                {{
+                  new Date(presentation.created_at).toLocaleDateString()
+                }}</span
+              >
+              <span v-if="presentation.slide_count"
+                >Slides: {{ presentation.slide_count }}</span
+              >
+            </div>
+            <div class="presentation-actions-row">
+              <button
+                @click="viewPresentation(presentation.presentation_id)"
+                class="btn btn-secondary"
+              >
+                View Presentation
+              </button>
+              <button
+                @click.stop="
+                  presentationSureness[presentation.presentation_id]
+                    ? deletePresentation(presentation.presentation_id, $event)
+                    : checkSureness(presentation.presentation_id, $event)
+                "
+                class="btn btn-danger delete-presentation-button"
+              >
+                {{
+                  !presentationSureness[presentation.presentation_id]
+                    ? 'Delete Presentation'
+                    : 'Click again to delete'
+                }}
+              </button>
+            </div>
           </div>
         </div>
-        <div class="presentation-meta">
-          <span
-            >Created:
-            {{ new Date(presentation.created_at).toLocaleDateString() }}</span
-          >
-          <br />
-          <span v-if="presentation.slide_count"
-            >Slides: {{ presentation.slide_count }}</span
-          >
-        </div>
-        <button
-          @click="viewPresentation(presentation.presentation_id)"
-          class="btn btn-secondary"
-        >
-          View Presentation
-        </button>
-        <button
-          @click.stop="
-            presentationSureness[presentation.presentation_id]
-              ? deletePresentation(presentation.presentation_id, $event)
-              : checkSureness(presentation.presentation_id, $event)
-          "
-          class="btn btn-danger delete-presentation-button"
-        >
-          {{
-            !presentationSureness[presentation.presentation_id]
-              ? 'Delete Presentation'
-              : 'Click again to delete'
-          }}
-        </button>
       </div>
     </div>
   </div>

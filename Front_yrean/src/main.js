@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import './assets/styles/empyre-point.css'
+import './styles/empyre-point.css'
 import App from './App.vue'
 import router from './router'
 

@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi, handleApiError } from '../services/api'
 import logo from '../../assets/Empyre_Point_Logo.png'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 const router = useRouter()
 const loginError = ref('')
 const isSubmitting = ref(false)
