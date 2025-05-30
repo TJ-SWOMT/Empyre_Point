@@ -2,7 +2,7 @@
   "name": "front-yrean",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://tjloughry.github.io/Empyre_Point/",
+  "homepage": "https://tj-swomt.github.io/Empyre_Point/",
   "type": "module",
   "scripts": {
     "dev": "vite",
