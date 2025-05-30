@@ -49,7 +49,7 @@ const onSubmit = async (e) => {
         <label for="password">Password</label>
         <input id="password" v-model="password" type="password" required />
       </div>
-      <div v-if="loginError" class="error-message">{{ loginError }}</div>
+      <div v-if="loginError" class="error-message register-link">{{ loginError }}</div>
       <button type="submit" :disabled="isSubmitting">{{ isSubmitting ? 'Logging in...' : 'Login' }}</button>
       <p class="register-link">
         Don't have an account? <router-link to="/register">Register here</router-link>
