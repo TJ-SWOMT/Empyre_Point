@@ -87,12 +87,14 @@ body {
 
 /* Typography */
 h1 {
+  color: var(--text-color);
   font-size: clamp(1.25rem, 5vw, 1.5rem);
   line-height: 1.1;
   margin: 0;
 }
 
 h2 {
+  color: var(--text-color);
   font-size: clamp(1.1rem, 4vw, 1.25rem);
   margin: var(--spacing-md) 0;
 }
@@ -265,20 +267,30 @@ input[type="color"] {
 
 }
 
-.presentation-actions {
+.slide-actions, .presentation-actions{
   position: fixed;
-  top: calc(var(--header-height) + var(--presentation-header-height));
   left: 0;
   right: 0;
   z-index: 100;
+  top: calc(var(--header-height) + var(--presentation-header-height));
   display: flex;
   flex-direction: row;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 18px;
   align-items: center;
-  gap: var(--spacing-lg);
-  background-color: var(--background-color);
+  justify-content: center;
+  width: 100%;
   box-sizing: border-box;
   padding: var(--spacing-md);
+  background: none;
+}
+
+.slide-actions, .presentation-actions  > * {
+  flex: 0 1 auto;
+  min-width: 120px;
+  max-width: 100vw;
+  font-size: 1rem;
+  transition: all 0.2s;
 }
 
 .presentation-actions button {
@@ -782,6 +794,14 @@ textarea {
   text-align: center;
 }
 
+.slide-controls-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
 /* Presentation Slides Styles */
 .slides-viewport {
   display: flex;
@@ -1045,9 +1065,21 @@ textarea {
     padding: var(--spacing-sm);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    top: calc(var(--header-height) + var(--presentation-header-height));
+    flex-direction: column;
+    gap: 12px;
     padding: var(--spacing-sm);
-    gap: var(--spacing-md);
+  }
+
+  .slide-actions, .presentation-actions  > * {
+    min-width: 100px;
+    font-size: 0.95rem;
+    padding: 8px 10px;
   }
 
   .slides-container {
@@ -1158,9 +1190,23 @@ textarea {
     padding: var(--spacing-xs);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    top: calc(var(--header-height) + var(--presentation-header-height));
+    flex-direction: column;
+    gap: 8px;
     padding: var(--spacing-xs);
-    gap: var(--spacing-sm);
+    overflow-x: auto;
+    width: 100vw;
+  }
+
+  .slide-actions, .presentation-actions  > * {
+    min-width: 80px;
+    font-size: 0.85rem;
+    padding: 6px 6px;
   }
 
   .presentation-title {
@@ -1315,13 +1361,14 @@ textarea {
     padding: var(--spacing-xs);
   }
 
-  .presentation-actions {
+  .slide-actions, .presentation-actions  {
+    top: calc(var(--header-height) + var(--presentation-header-height));
     padding: var(--spacing-xs);
     flex-direction: row;
     flex-wrap: wrap;
   }
 
-  .presentation-actions button {
+  .slide-actions, .presentation-actions  button { 
     flex: 0 1 auto;
     min-width: 120px;
   }
@@ -1410,4 +1457,341 @@ textarea {
     gap: 10px;
     margin-top: 4px;
   }
+}
+
+/* Slide Editor Controls */
+.slide-editor-controls-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+/* .slide-background-edit-actions, */
+.slide-title-container {
+  margin-top: 0;
+  margin-bottom: 0;
+  width: auto;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.color-picker,
+.slide-title-container {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--border-radius);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.color-picker label,
+.slide-title-container label {
+  color: var(--white);
+  font-size: clamp(0.875rem, 2vw, 1rem);
+  white-space: nowrap;
+}
+
+.slide-title-container input {
+  width: 300px;
+  max-width: 100%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-color);
+  color: var(--text-color);
+}
+
+@media (max-width: 600px) {
+  .slide-editor-controls-group {
+    gap: 8px;
+  }
+  .color-picker,
+  .slide-title-container {
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+  .slide-title-container input {
+    width: 250px;
+  }
+}
+
+/* Background Image Modal Styles */
+.background-image-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.background-image-modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.background-image-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.background-image-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.background-image-modal-close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  color: #666;
+}
+
+.background-image-modal-close-button:hover {
+  color: #000;
+}
+
+.background-image-upload-section {
+  margin-bottom: 20px;
+}
+
+.background-image-upload-button {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.background-image-upload-button:hover {
+  background-color: var(--primary-hover);
+}
+
+.background-image-upload-button input[type="file"] {
+  display: none;
+}
+
+.background-image-preview-section {
+  margin-bottom: 20px;
+}
+
+.background-image-preview-container {
+  width: 100%;
+  height: 200px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+}
+
+.background-image-controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.background-image-control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.background-image-control-group label {
+  min-width: 100px;
+}
+
+.background-image-control-group select,
+.background-image-control-group input[type="range"] {
+  flex: 1;
+}
+
+.background-image-opacity-value {
+  min-width: 50px;
+  text-align: right;
+}
+
+.background-image-action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.background-image-upload-new-button {
+  padding: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  flex: 1;
+}
+
+.background-image-upload-new-button:hover {
+  background-color: var(--primary-hover);
+}
+
+.background-image-remove-button {
+  flex: 1;
+}
+
+.background-image-modal-action-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+
+.background-image-cancel-button,
+.background-image-ok-button {
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border: none;
+}
+
+.background-image-cancel-button {
+  background-color: #6c757d;
+  color: white;
+}
+
+.background-image-cancel-button:hover {
+  background-color: #5a6268;
+}
+
+.background-image-ok-button {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.background-image-ok-button:hover {
+  background-color: var(--primary-hover);
+}
+
+/* Edit Presentation Modal Styles */
+.edit-presentation-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.edit-presentation-modal-content {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: var(--shadow);
+}
+
+.edit-presentation-modal-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.edit-presentation-modal-header h2 {
+  margin: 0;
+  color: var(--text-color);
+  font-size: clamp(1.1rem, 4vw, 1.25rem);
+}
+
+.edit-presentation-form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.edit-presentation-form-group label {
+  display: block;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+.edit-presentation-form-group input,
+.edit-presentation-form-group textarea {
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-size: clamp(0.875rem, 3.5vw, 1rem);
+  background-color: var(--white);
+  color: var(--text-color);
+  transition: border-color 0.2s;
+}
+
+.edit-presentation-form-group input:focus,
+.edit-presentation-form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.edit-presentation-form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.edit-presentation-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
+.edit-presentation-cancel-button {
+  background-color: var(--text-light);
+  color: var(--white);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-presentation-cancel-button:hover {
+  background-color: var(--text-color);
+}
+
+.edit-presentation-save-button {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-presentation-save-button:hover {
+  background-color: var(--primary-hover);
+}
+
+.edit-presentation-save-button:disabled {
+  background-color: var(--text-light);
+  cursor: not-allowed;
 } 

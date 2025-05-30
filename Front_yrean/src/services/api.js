@@ -83,14 +83,14 @@ export const presentationApi = {
     return response.json()
   },
 
-  async updatePresentation(presentation_id, title, description) {
+  async updatePresentation(presentation_id, updateData) {
     const response = await fetch(`${API_BASE_URL}/presentations/${presentation_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ title, description })
+      body: JSON.stringify(updateData)
     })
     return response.json()
   },
@@ -107,26 +107,40 @@ export const presentationApi = {
   },
 
   // Slide endpoints
-  async createSlide(presentation_id, slide_number, background_color = '#FFFFFF', background_image_url = null, title = '') {
+  async createSlide(presentation_id, slide_number, background_color = '#FFFFFF', background_image_url = null, title = '', background_image_opacity = 1, background_image_fit = 'cover') {
     const response = await fetch(`${API_BASE_URL}/presentations/${presentation_id}/slides`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ slide_number, background_color, background_image_url, title })
+      body: JSON.stringify({ 
+        slide_number, 
+        background_color, 
+        background_image_url, 
+        title,
+        background_image_opacity,
+        background_image_fit
+      })
     })
     return response.json()
   },
 
-  async updateSlide(slide_id, slide_number, background_color, background_image_url, title) {
+  async updateSlide(slide_id, slide_number, background_color, background_image_url, title, background_image_opacity = 1, background_image_fit = 'cover') {
     const response = await fetch(`${API_BASE_URL}/slides/${slide_id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeader()
       },
-      body: JSON.stringify({ slide_number, background_color, background_image_url, title })
+      body: JSON.stringify({ 
+        slide_number, 
+        background_color, 
+        background_image_url, 
+        title,
+        background_image_opacity,
+        background_image_fit
+      })
     })
     return response.json()
   },

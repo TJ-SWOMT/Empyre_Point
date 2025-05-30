@@ -22,7 +22,15 @@ const slideElements = ref({})
 const elementsLoaded = ref({}) // Track which slides have their elements loaded
 const slideWrapperRef = ref(null)
 
-const { scale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
+// Custom scale calculation for play view
+const playScale = computed(() => {
+  const viewportWidth = window.innerWidth
+  const targetWidth = viewportWidth * 0.95 // 95vw
+  return targetWidth / DESIGN_WIDTH
+})
+
+// Keep the original scale for reference but use playScale for display
+const { scale: originalScale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
 
 const currentSlide = computed(() => slides.value[currentSlideIndex.value] || null)
 const isFirstSlide = computed(() => currentSlideIndex.value === 0)
@@ -218,16 +226,28 @@ watch(currentSlide, (newSlide) => {
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          width: 960 + 'px',
-          height: 540 + 'px',
-          transform: `scale(${scale})`,
+          width: DESIGN_WIDTH + 'px',
+          height: DESIGN_HEIGHT + 'px',
+          transform: `scale(${playScale})`,
           transformOrigin: 'center center'
         }"
       >
         <!-- Background image -->
         <div v-if="currentSlide.background_image_url" 
              class="background-image"
-             :style="{ backgroundImage: `url(${currentSlide.background_image_url})` }">
+             :style="{
+               backgroundImage: `url(${currentSlide.background_image_url})`,
+               backgroundSize: currentSlide.background_image_fit || 'cover',
+               backgroundPosition: currentSlide.background_image_position || 'center',
+               backgroundRepeat: 'no-repeat',
+               opacity: currentSlide.background_image_opacity || 1,
+               position: 'absolute',
+               top: 0,
+               left: 0,
+               right: 0,
+               bottom: 0,
+               zIndex: 0
+             }">
         </div>
         <!-- Loading indicator for current slide -->
         <div v-if="!isCurrentSlideReady" class="slide-loading">
