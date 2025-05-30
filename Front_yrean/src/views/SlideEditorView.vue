@@ -1331,7 +1331,7 @@ const toggleStyling = () => {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden'
+          overflow: 'visible'
         }"
       >
         <div
@@ -1415,7 +1415,7 @@ const toggleStyling = () => {
                     background: 'transparent',
                     border: '2px solid rgba(0,0,0,0.5)',
                     boxSizing: 'border-box',
-                    overflow: 'hidden'
+                    overflow: 'visible'
                   })
             }"
             @click.stop="selectElement(element)"
@@ -1464,8 +1464,8 @@ const toggleStyling = () => {
                     ? 'underline'
                     : 'none',
                   textAlign: element.element_data?.text_align || 'left',
-                  width: '100%',
-                  height: '100%',
+                  width: `${selectedElement?.width || 200}px`,
+                  height: `${selectedElement?.height || 100}px`,
                   border: '2px solid #28a745',
                   background: 'rgba(255,255,255,0.95)',
                   resize: 'none',
@@ -1473,7 +1473,7 @@ const toggleStyling = () => {
                   padding: '5px',
                   boxShadow: 'none',
                   boxSizing: 'border-box',
-                  overflow: 'auto',
+                  overflow: 'visible',
                   whiteSpace: 'pre-wrap',
                   wordWrap: 'break-word',
                   display: 'block',
@@ -1509,7 +1509,7 @@ const toggleStyling = () => {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                overflow: hidden;
+                overflow: visible;
               "
             >
               <img

@@ -1,23 +1,51 @@
 # Empyre Point Backend
 
-This is the backend service for Empyre Point, built with Flask and Socket.IO. The service is hosted on AWS and provides the API endpoints, real-time collaboration features, and database management for the presentation platform.
+This is the backend service for Empyre Point, built with Flask and Socket.IO. While the database is hosted on AWS RDS, the Flask server needs to be run locally for development.
 
-## Current Status
+## Setup Instructions
 
-The backend is currently deployed and running on AWS at:
+1. Create and activate a Python virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
-http://44.201.125.158:5001/api
+
+2. Install dependencies:
+```bash
+pip install -r requirements.txt
 ```
 
-All frontend applications are configured to use this global backend. No local setup is required to use the application.
+3. Environment Configuration:
+   The `.env` file contains the AWS database configuration:
+   ```
+   # Database Configuration (AWS RDS)
+   DB_USERNAME=EmpyrePointAdmin
+   DB_PASSWORD=your_password_here
+   DB_ENDPOINT=empyre-point.ckbeyci4yeyy.us-east-1.rds.amazonaws.com
+   DB_PORT=5432
+   DB_NAME=Empyre_Point_DB
+   DATABASE_URL=postgresql://${DB_USERNAME}:${DB_PASSWORD}@${DB_ENDPOINT}:${DB_PORT}/${DB_NAME}
+
+   # AWS Configuration
+   AWS_ACCESS_KEY_ID=your_access_key
+   AWS_SECRET_ACCESS_KEY=your_secret_key
+   AWS_REGION=us-east-1
+   S3_BUCKET_NAME=empyre-point-images
+   ```
+
+4. Start the Flask server:
+```bash
+python3 app.py
+```
+The server will start on `http://localhost:5000` and connect to the AWS RDS database.
 
 ## Architecture Overview
 
-### AWS Infrastructure
-- **API Server**: AWS EC2 instance running Flask
-- **Database**: AWS RDS PostgreSQL
-- **Storage**: AWS S3 for media files
-- **Security**: AWS IAM for access management
+### Components
+- **Local Server**: Flask application running on your machine
+- **Database**: AWS RDS PostgreSQL (remote)
+- **Storage**: AWS S3 for media files (remote)
+- **Security**: AWS IAM for database and storage access
 
 ### Key Components
 - Flask REST API for slide management
@@ -148,4 +176,15 @@ Common issues and solutions:
 
 ## Contributing
 
-See the main project README for contribution guidelines. 
+See the main project README for contribution guidelines.
+
+## Current Status
+
+The backend server runs locally and connects to:
+- AWS RDS PostgreSQL database
+- AWS S3 for media storage
+
+The frontend is configured to connect to your local backend server at:
+```
+http://localhost:5000/api
+``` 

@@ -6,9 +6,17 @@ import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
 import '../styles/empyre-point.css'
 
-// Function to render element content with markdown
+// Custom renderer for marked to ensure links open in a new tab
+const renderer = new marked.Renderer()
+renderer.link = function(token) {
+  // For marked v5+, token is an object
+  const safeHref = typeof token.href === 'string' ? token.href : '';
+  const safeText = typeof token.text === 'string' ? token.text : '';
+  return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer" style="color:#1976d2;text-decoration:underline;cursor:pointer;">${safeText}</a>`;
+}
+
 const renderElementContent = (element) => {
-  return marked(element.content || '')
+  return marked(element.content || '', { renderer })
 }
 
 const route = useRoute()
@@ -22,8 +30,19 @@ const slideElements = ref({})
 const elementsLoaded = ref({}) // Track which slides have their elements loaded
 const slideWrapperRef = ref(null)
 
-// Keep the original scale for reference but use playScale for display
-const { DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
+const availableHeight = ref(window.innerHeight - 120) // adjust as needed for nav
+const availableWidth = ref(window.innerWidth)
+
+const { scale, DESIGN_WIDTH, DESIGN_HEIGHT, calculateScale } = useSlideScale(
+  availableHeight,
+  availableWidth
+)
+
+function updateAvailableHeight() {
+  availableHeight.value = window.innerHeight - 120 // adjust as needed
+  availableWidth.value = window.innerWidth
+  calculateScale()
+}
 
 const currentSlide = computed(() => slides.value[currentSlideIndex.value] || null)
 const isFirstSlide = computed(() => currentSlideIndex.value === 0)
@@ -188,11 +207,14 @@ const handleKeyPress = (event) => {
 onMounted(() => {
   fetchSlides()
   window.addEventListener('keydown', handleKeyPress)
+  window.addEventListener('resize', updateAvailableHeight)
   document.body.classList.add('play-mode')
+  updateAvailableHeight()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyPress)
+  window.removeEventListener('resize', updateAvailableHeight)
   document.body.classList.remove('play-mode')
 })
 
@@ -211,18 +233,30 @@ watch(currentSlide, (newSlide) => {
 </script>
 
 <template>
-  <div class="play-presentation-container" @click="nextSlide">
+  <div class="play-presentation-container">
     <div v-if="error" class="error-message">{{ error }}</div>
     <div v-if="isLoading" class="loading">
       Loading presentation...
     </div>
-    <div v-else-if="currentSlide" class="slide-scale-wrapper play-view" ref="slideWrapperRef">
+    <div v-else-if="currentSlide" class="slide-scale-wrapper play-view" ref="slideWrapperRef"
+      :style="{
+        width: '100%',
+        height: availableHeight + 'px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }"
+    >
       <div 
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          width: '100%',
-          height: '100%',
+          width: DESIGN_WIDTH + 'px',
+          height: DESIGN_HEIGHT + 'px',
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center',
+          position: 'relative'
         }"
       >
         <!-- Background image -->
@@ -270,10 +304,11 @@ watch(currentSlide, (newSlide) => {
                      background: 'rgba(0,0,0,0)',
                      border: 'none',
                      boxSizing: 'border-box',
-                     display: 'flex',
-                     alignItems: 'center',
-                     justifyContent: 'center',
-                     padding: 0
+                     display: 'block',
+                     padding: 0,
+                     overflow: 'hidden',
+                     wordBreak: 'break-word',
+                     whiteSpace: 'pre-wrap',
                    } : {
                      background: 'transparent',
                      border: 'none',
@@ -290,12 +325,9 @@ watch(currentSlide, (newSlide) => {
                 <div class="element-content" :style="{
                   width: '100%',
                   height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  display: 'block',
                   textAlign: element.text_align,
                   overflow: 'hidden',
-                  wordBreak: 'break-word',
                   color: element.font_color,
                   fontSize: `${element.font_size}px`,
                   fontWeight: element.bold ? 'bold' : 'normal',
@@ -304,7 +336,10 @@ watch(currentSlide, (newSlide) => {
                   padding: '2px',
                   lineHeight: '1.2'
                 }">
-                  <div v-html="renderElementContent(element)" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div>
+                  <div 
+                    v-html="renderElementContent(element)" 
+                    style="width:100%;height:100%;"
+                  ></div>
                 </div>
               </template>
               <!-- Render image element -->

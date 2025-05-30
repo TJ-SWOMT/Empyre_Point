@@ -56,10 +56,13 @@ Empyre_Point/
 To get started with development:
 
 1. Clone the repository
-2. Set up the frontend (see Front_yrean/README.md)
-3. Start the frontend development server
+2. Set up the backend (see Back_yrean/README.md):
+   - Install Python dependencies
+   - Run the Flask server: `python3 app.py`
+3. Set up the frontend (see Front_yrean/README.md)
+4. Start the frontend development server
 
-**Note:** The backend is already deployed and running on AWS. You don't need to set up or run the backend locally. The frontend is configured to connect to the global backend automatically.
+**Note:** While the database is hosted on AWS RDS, you need to run the backend server locally. The frontend is configured to connect to your local backend server.
 
 ## Development Environment
 

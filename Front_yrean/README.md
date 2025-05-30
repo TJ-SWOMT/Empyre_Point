@@ -16,18 +16,19 @@ npm install
 ```
 
 2. Environment Configuration:
-   The frontend is pre-configured to use the global AWS backend. The `.env` file contains:
+   The frontend is configured to connect to your local backend server. The `.env` file should contain:
    ```
-   # Production (AWS backend)
-   VITE_API_URL=http://44.201.125.158:5001/api
+   # Development (local backend)
+   VITE_API_URL=http://localhost:5000/api
    ```
-   No additional configuration is needed to connect to the backend.
 
 3. Development Server:
 ```bash
 npm run dev
 ```
 The development server will start at `http://localhost:5173`
+
+**Note:** Make sure the backend server is running (see Back_yrean/README.md) before starting the frontend.
 
 4. Building for Production:
 ```bash
@@ -145,9 +146,9 @@ The frontend is configured to deploy to AWS S3:
 ## Troubleshooting
 
 Common issues and solutions:
-1. CORS errors: The backend is already configured for CORS
-2. WebSocket connection: Verify your network allows WebSocket connections
-3. API connection: The backend URL is pre-configured, no changes needed
+1. CORS errors: Ensure the backend server is running and CORS is enabled
+2. WebSocket connection: Verify the backend server is running
+3. API connection: Make sure the backend server is running on port 5000
 4. Build errors: Clear node_modules and reinstall
 
 ## Contributing
