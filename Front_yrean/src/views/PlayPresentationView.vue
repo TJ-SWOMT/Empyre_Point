@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
 import { marked } from 'marked'
 import { useSlideScale } from '../composables/useSlideScale'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 // Function to render element content with markdown
 const renderElementContent = (element) => {
@@ -22,15 +22,8 @@ const slideElements = ref({})
 const elementsLoaded = ref({}) // Track which slides have their elements loaded
 const slideWrapperRef = ref(null)
 
-// Custom scale calculation for play view
-const playScale = computed(() => {
-  const viewportWidth = window.innerWidth
-  const targetWidth = viewportWidth * 0.95 // 95vw
-  return targetWidth / DESIGN_WIDTH
-})
-
 // Keep the original scale for reference but use playScale for display
-const { scale: originalScale, DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
+const { DESIGN_WIDTH, DESIGN_HEIGHT } = useSlideScale()
 
 const currentSlide = computed(() => slides.value[currentSlideIndex.value] || null)
 const isFirstSlide = computed(() => currentSlideIndex.value === 0)
@@ -221,15 +214,13 @@ watch(currentSlide, (newSlide) => {
     <div v-if="isLoading" class="loading">
       Loading presentation...
     </div>
-    <div v-else-if="currentSlide" class="slide-scale-wrapper" ref="slideWrapperRef">
+    <div v-else-if="currentSlide" class="slide-scale-wrapper play-view" ref="slideWrapperRef">
       <div 
         class="slide-display"
         :style="{
           backgroundColor: currentSlide.background_color || '#FFFFFF',
-          width: DESIGN_WIDTH + 'px',
-          height: DESIGN_HEIGHT + 'px',
-          transform: `scale(${playScale})`,
-          transformOrigin: 'center center'
+          width: '100%',
+          height: '100%',
         }"
       >
         <!-- Background image -->

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { presentationApi, handleApiError } from '../services/api'
-import '../assets/styles/empyre-point.css'
+import '../styles/empyre-point.css'
 
 const router = useRouter()
 const title = ref('')
