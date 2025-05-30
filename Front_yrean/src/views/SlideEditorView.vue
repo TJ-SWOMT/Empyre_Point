@@ -149,6 +149,12 @@ const isStylingExpanded = ref(true)
 // Add new ref for loading state
 const isLoading = ref(true)
 
+// Add isMobile ref for responsive logic
+const isMobile = ref(window.innerWidth <= 600)
+function handleResize() {
+  isMobile.value = window.innerWidth <= 600
+}
+
 const loadSlideData = async () => {
   try {
     isLoading.value = true
@@ -1216,6 +1222,9 @@ onMounted(() => {
   if (isEditMode.value) {
     loadSlideElements()
   }
+
+  // Add resize listener for isMobile
+  window.addEventListener('resize', handleResize)
 })
 
 // Register cleanup
@@ -1271,51 +1280,37 @@ const toggleStyling = () => {
     </div>
 
     <div class="page-actions" ref="headerRef">
-      <div class="action-bar-container">
-        <div class="action-bar-content">
-          <div class="slide-controls-container">
-            <button
-              @click="addText"
-              :class="{ active: isAddingText }"
-              title="Click to add text, then click on the slide where you want the text to appear"
-            >
-              Add Text
-            </button>
-            <button @click="addImage">Add Image</button>
-            <button
-              @click.stop="deleteSlide($event)"
-              class="btn btn-danger delete-slide-button"
-            >
-              {{ !slideSureness ? 'Delete Slide' : 'Click again to delete' }}
-            </button>
-          </div>
-          <div class="slide-background-edit-actions">
-            <div class="color-picker">
-              <label for="backgroundColor">Background Color:</label>
-              <input
-                type="color"
-                id="backgroundColor"
-                v-model="backgroundColor"
-                title="Choose slide background color"
-              />
-            </div>
-            <button @click="showBackgroundImageModal = true">Set Background Image</button>
-          </div>
-          <div class="slide-title-container">
-            <label for="slideTitle">Slide Title:</label>
-            <input type="text" v-model="slideTitle" placeholder="Slide Title" />
-          </div>
-        </div>
-        <button 
-          class="action-bar-toggle"
-          @click="toggleActionBar"
-          :class="{ 'is-active': isActionBarExpanded }"
-          aria-label="Toggle action bar"
+      <div class="slide-controls-container">
+        <button
+          @click="addText"
+          :class="{ active: isAddingText }"
+          title="Click to add text, then click on the slide where you want the text to appear"
         >
-          <span></span>
-          <span></span>
-          <span></span>
+          Add Text
         </button>
+        <button @click="addImage">Add Image</button>
+        <button
+          @click.stop="deleteSlide($event)"
+          class="btn btn-danger delete-slide-button"
+        >
+          {{ !slideSureness ? 'Delete Slide' : 'Click again to delete' }}
+        </button>
+      </div>
+      <div class="slide-background-edit-actions">
+        <div class="color-picker">
+          <label for="backgroundColor">Background Color:</label>
+          <input
+            type="color"
+            id="backgroundColor"
+            v-model="backgroundColor"
+            title="Choose slide background color"
+          />
+        </div>
+        <button @click="showBackgroundImageModal = true">Set Background Image</button>
+      </div>
+      <div class="slide-title-container">
+        <label for="slideTitle">Slide Title:</label>
+        <input type="text" v-model="slideTitle" placeholder="Slide Title" />
       </div>
     </div>
 
@@ -1333,6 +1328,7 @@ const toggleStyling = () => {
           width: '100%',
           height: availableHeight + 'px',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden'
@@ -1342,7 +1338,8 @@ const toggleStyling = () => {
           class="slide-container"
           :style="{
             backgroundColor: backgroundColor,
-            width: DESIGN_WIDTH + 'px',
+            width: isMobile ? '100vw' : DESIGN_WIDTH + 'px',
+            maxWidth: '100vw',
             height: DESIGN_HEIGHT + 'px',
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
@@ -1740,57 +1737,3 @@ const toggleStyling = () => {
   </div>
 </template>
 
-<style scoped>
-/* All styles moved to empyre-point.css */
-
-/* Update loading styles */
-.slide-editor-content {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  position: relative;
-}
-
-.loading-container {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--spacing-md);
-}
-
-.loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-left-color: var(--primary-color);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.loading-text {
-  color: var(--white);
-  font-size: 1.1rem;
-  font-weight: 500;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; }
-}
-</style>

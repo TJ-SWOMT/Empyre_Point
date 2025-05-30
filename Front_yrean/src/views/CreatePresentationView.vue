@@ -62,13 +62,14 @@ const createPresentation = async () => {
 </script>
 
 <template>
-    <div class="create-presentation-container">
-        <div class="create-presentation-header">
-            <div class="create-presentation-title">Create New Presentation</div>
+    <div class="page-content-wrapper">
+        <div class="page-header">
+            <div class="page-header-text">Create New Presentation</div>
         </div>
-        <div class="presentation-form">
-            <div class="form-group">
-                <label for="title">Presentation Title</label>
+        <div class="view-area-container">
+            <div class="presentation-form">
+                <div class="form-group">
+                    <label for="title">Presentation Title</label>
                 <input id="title" v-model="title" type="text" placeholder="Enter presentation title" required maxlength="32"/>
                 <div class="char-count">{{ title.length }}/32 characters</div>
             </div>
@@ -81,7 +82,8 @@ const createPresentation = async () => {
             <button @click="createPresentation" :disabled="isSubmitting">
                 {{ isSubmitting ? 'Creating...' : 'Create Presentation' }}
             </button>
-            <div v-if="error" class="error-message">{{ error }}</div>
+                <div v-if="error" class="error-message">{{ error }}</div>
+            </div>
         </div>
     </div>
 </template>
